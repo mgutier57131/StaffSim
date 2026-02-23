@@ -53,10 +53,21 @@ def _build_line_figure(y: np.ndarray, title: str, ylabel: str) -> plt.Figure:
     ax.plot(x, y, linewidth=1.5)
     for day_idx in range(1, 7):
         ax.axvline(48 * day_idx, color="gray", linewidth=0.8, alpha=0.35)
+    # Major ticks every 12 intervals (6 hours) for a denser and clearer timeline.
+    tick_positions = np.arange(0, 336, 12)
+    tick_labels: list[str] = []
+    for t in tick_positions:
+        day = t // 48
+        half_hours = (t % 48)
+        hour = half_hours // 2
+        minute = "30" if (half_hours % 2) else "00"
+        tick_labels.append(f"{DAY_LABELS[int(day)]} {int(hour):02d}:{minute}")
+
     ax.set_title(title)
     ax.set_xlabel("Time (30-min intervals across week)")
     ax.set_ylabel(ylabel)
-    ax.set_xticks([48 * day for day in range(7)], [f"{DAY_LABELS[day]} 00:00" for day in range(7)], rotation=30)
+    ax.set_xticks(tick_positions, tick_labels, rotation=45, ha="right")
+    ax.grid(True, which="major", axis="both", alpha=0.25, linewidth=0.6)
     fig.tight_layout()
     return fig
 
