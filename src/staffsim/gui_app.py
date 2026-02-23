@@ -82,6 +82,16 @@ def _build_params_text(params: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _to_fraction(value: float) -> tuple[float, str]:
+    """
+    Accept either decimal (0..1) or percent (0..100).
+    Returns normalized fraction and the interpretation used.
+    """
+    if value <= 1.0:
+        return value, "decimal"
+    return value / 100.0, "percent"
+
+
 def main() -> None:
     st.set_page_config(page_title="StaffSim GUI", layout="wide")
     st.title("StaffSim - Weekly Curve Simulator")
@@ -112,7 +122,7 @@ def main() -> None:
             step=0.1,
             format="%.2f",
             key="occ_pct",
-            help="Occupancy percentage (0 to 100).",
+            help="You can enter 70 or 0.70 (both are accepted).",
         )
         st.number_input(
             "SHK (%)",
@@ -121,7 +131,7 @@ def main() -> None:
             step=0.1,
             format="%.2f",
             key="shk_pct",
-            help="Shrinkage percentage (0 to 100).",
+            help="You can enter 20 or 0.20 (both are accepted).",
         )
         st.number_input(
             "Paid Hours per Agent (weekly)",
@@ -215,6 +225,14 @@ def main() -> None:
                 key="width2",
                 help="Second peak width in intervals. Sigma is width/2.",
             )
+            st.number_input(
+                "Peak to Valley Ratio",
+                min_value=1.0,
+                step=0.05,
+                format="%.2f",
+                key="ratio_target",
+                help="Ratio of peak to valley in intraday pattern. 1=flat, 2=double, 3=triple.",
+            )
             st.selectbox(
                 "Peak Height Mode",
                 options=["equal", "peak1-higher", "peak2-higher"],
@@ -230,14 +248,15 @@ def main() -> None:
                     key="peak_ratio",
                     help="Height ratio used in peak1-higher or peak2-higher mode.",
                 )
-        st.number_input(
-            "Peak to Valley Ratio",
-            min_value=1.0,
-            step=0.05,
-            format="%.2f",
-            key="ratio_target",
-            help="Ratio of peak to valley in intraday pattern. 1=flat, 2=double, 3=triple.",
-        )
+        else:
+            st.number_input(
+                "Peak to Valley Ratio",
+                min_value=1.0,
+                step=0.05,
+                format="%.2f",
+                key="ratio_target",
+                help="Ratio of peak to valley in intraday pattern. 1=flat, 2=double, 3=triple.",
+            )
 
         st.divider()
         st.button("Reset to Flat Curve", on_click=_reset_baseline)
@@ -248,14 +267,22 @@ def main() -> None:
 
     p_input = float(st.session_state["p"])
     p_effective = max(MIN_WEEKDAY_SHARE, p_input)
+    occ_effective, occ_mode = _to_fraction(float(st.session_state["occ_pct"]))
+    shk_effective, shk_mode = _to_fraction(float(st.session_state["shk_pct"]))
     if str(st.session_state["week_mode"]) == "W2" and p_input < MIN_WEEKDAY_SHARE:
         st.warning(f"p adjusted to internal minimum: {MIN_WEEKDAY_SHARE:.3f}")
+    if occ_effective <= 0 or occ_effective > 1:
+        st.error("OCC must be in (0,1] as decimal or (0,100] as percent.")
+        return
+    if shk_effective < 0 or shk_effective >= 1:
+        st.error("SHK must be in [0,1) as decimal or [0,100) as percent.")
+        return
 
     try:
         sim = run_simulation(
             v_week=int(st.session_state["v_week"]),
             aht=float(st.session_state["aht"]),
-            occ=float(st.session_state["occ_pct"]) / 100.0,
+            occ=occ_effective,
             week_mode=str(st.session_state["week_mode"]),
             p=p_effective,
             weekday_split=str(st.session_state["weekday_split"]),
@@ -277,8 +304,8 @@ def main() -> None:
     baseline = compute_baseline_summary(
         v_week=int(st.session_state["v_week"]),
         aht=float(st.session_state["aht"]),
-        occ=float(st.session_state["occ_pct"]) / 100.0,
-        shk=float(st.session_state["shk_pct"]) / 100.0,
+        occ=occ_effective,
+        shk=shk_effective,
         hg=float(st.session_state["hg"]),
         t_interval=T_INTERVAL_DEFAULT,
     )
@@ -327,10 +354,12 @@ def main() -> None:
     params = {
         "Weekly Volume": int(st.session_state["v_week"]),
         "AHT Seconds": float(st.session_state["aht"]),
-        "OCC Percent": float(st.session_state["occ_pct"]),
-        "SHK Percent": float(st.session_state["shk_pct"]),
-        "OCC": float(st.session_state["occ_pct"]) / 100.0,
-        "SHK": float(st.session_state["shk_pct"]) / 100.0,
+        "OCC Input": float(st.session_state["occ_pct"]),
+        "SHK Input": float(st.session_state["shk_pct"]),
+        "OCC Input Mode": occ_mode,
+        "SHK Input Mode": shk_mode,
+        "OCC": occ_effective,
+        "SHK": shk_effective,
         "Paid Hours Weekly": float(st.session_state["hg"]),
         "T Interval Hours": T_INTERVAL_DEFAULT,
         "Week Mode": str(st.session_state["week_mode"]),
