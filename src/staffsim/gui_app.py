@@ -208,13 +208,14 @@ def main() -> None:
                 key="peak_ratio_mode",
                 help="Relative height between Peak 1 and Peak 2.",
             )
-            st.number_input(
-                "Peak Height Ratio",
-                min_value=1.0,
-                step=0.05,
-                key="peak_ratio",
-                help="Height ratio used in peak1-higher or peak2-higher mode.",
-            )
+            if st.session_state["peak_ratio_mode"] != "equal":
+                st.number_input(
+                    "Peak Height Ratio",
+                    min_value=1.0,
+                    step=0.05,
+                    key="peak_ratio",
+                    help="Height ratio used in peak1-higher or peak2-higher mode.",
+                )
         st.number_input(
             "Peak to Valley Ratio",
             min_value=1.0,
