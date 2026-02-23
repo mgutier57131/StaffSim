@@ -143,12 +143,12 @@ def main() -> None:
         if st.session_state["week_mode"] == "W2":
             st.number_input(
                 "Weekday Share p (Mon-Fri)",
-                min_value=float(MIN_WEEKDAY_SHARE),
+                min_value=0.71,
                 max_value=0.999,
-                step=0.001,
+                step=0.01,
                 format="%.2f",
                 key="p",
-                help="Share of weekly volume assigned to weekdays (Mon-Fri).",
+                help="Share of weekly volume assigned to weekdays (Mon-Fri). Internal minimum is 0.714.",
             )
             st.selectbox(
                 "Weekday Split",
@@ -246,13 +246,18 @@ def main() -> None:
         st.error("Validation error: for two peaks, Peak Position 2 must be greater than Peak Position 1.")
         return
 
+    p_input = float(st.session_state["p"])
+    p_effective = max(MIN_WEEKDAY_SHARE, p_input)
+    if str(st.session_state["week_mode"]) == "W2" and p_input < MIN_WEEKDAY_SHARE:
+        st.warning(f"p adjusted to internal minimum: {MIN_WEEKDAY_SHARE:.3f}")
+
     try:
         sim = run_simulation(
             v_week=int(st.session_state["v_week"]),
             aht=float(st.session_state["aht"]),
             occ=float(st.session_state["occ_pct"]) / 100.0,
             week_mode=str(st.session_state["week_mode"]),
-            p=float(st.session_state["p"]),
+            p=p_effective,
             weekday_split=str(st.session_state["weekday_split"]),
             num_peaks=int(st.session_state["num_peaks"]),
             pos1=float(st.session_state["pos1"]),
@@ -329,7 +334,8 @@ def main() -> None:
         "Paid Hours Weekly": float(st.session_state["hg"]),
         "T Interval Hours": T_INTERVAL_DEFAULT,
         "Week Mode": str(st.session_state["week_mode"]),
-        "Weekday Share p": float(st.session_state["p"]) if str(st.session_state["week_mode"]) == "W2" else "",
+        "Weekday Share p Input": float(st.session_state["p"]) if str(st.session_state["week_mode"]) == "W2" else "",
+        "Weekday Share p Effective": p_effective if str(st.session_state["week_mode"]) == "W2" else "",
         "Weekday Split": str(st.session_state["weekday_split"]) if str(st.session_state["week_mode"]) == "W2" else "",
         "Weekday Step": WEEKDAY_STEP_DEFAULT,
         "Number of Peaks": int(st.session_state["num_peaks"]),
