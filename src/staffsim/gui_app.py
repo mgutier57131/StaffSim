@@ -21,8 +21,8 @@ from staffsim.workload.baseline import compute_baseline_summary
 BASELINE_DEFAULTS: dict[str, Any] = {
     "v_week": 10000,
     "aht": 300.0,
-    "occ": 0.70,
-    "shk": 0.20,
+    "occ_pct": 70.0,
+    "shk_pct": 20.0,
     "hg": 42.0,
     "week_mode": "W1",
     "p": 0.82,
@@ -66,6 +66,7 @@ def _build_line_figure(y: np.ndarray, title: str, ylabel: str) -> plt.Figure:
     ax.set_title(title)
     ax.set_xlabel("Time (30-min intervals across week)")
     ax.set_ylabel(ylabel)
+    ax.set_ylim(bottom=0)
     ax.set_xticks(tick_positions, tick_labels, rotation=45, ha="right")
     ax.grid(True, which="major", axis="both", alpha=0.25, linewidth=0.6)
     fig.tight_layout()
@@ -103,25 +104,23 @@ def main() -> None:
             help="Average handle time in seconds per call.",
         )
         st.number_input(
-            "OCC (0 to 1)",
+            "OCC (%)",
             min_value=0.0,
-            max_value=1.0,
-            step=0.01,
-            format="%.3f",
-            key="occ",
-            help="Occupancy value as a percentage in decimal form (0 to 1).",
+            max_value=100.0,
+            step=0.1,
+            format="%.2f",
+            key="occ_pct",
+            help="Occupancy percentage (0 to 100).",
         )
-        st.caption(f"OCC shown as percent: {float(st.session_state['occ']) * 100:.1f}%")
         st.number_input(
-            "SHK (0 to 1)",
+            "SHK (%)",
             min_value=0.0,
-            max_value=1.0,
-            step=0.01,
-            format="%.3f",
-            key="shk",
-            help="Shrinkage value as a percentage in decimal form (0 to 1).",
+            max_value=100.0,
+            step=0.1,
+            format="%.2f",
+            key="shk_pct",
+            help="Shrinkage percentage (0 to 100).",
         )
-        st.caption(f"SHK shown as percent: {float(st.session_state['shk']) * 100:.1f}%")
         st.number_input(
             "Paid Hours per Agent (weekly)",
             min_value=1.0,
@@ -140,10 +139,10 @@ def main() -> None:
             help="W1: uniform by day. W2: weekdays versus weekend split.",
         )
         if st.session_state["week_mode"] == "W2":
-            st.slider(
+            st.number_input(
                 "Weekday Share p (Mon-Fri)",
                 min_value=float(MIN_WEEKDAY_SHARE),
-                max_value=0.95,
+                max_value=0.999,
                 step=0.001,
                 key="p",
                 help="Share of weekly volume assigned to weekdays (Mon-Fri).",
@@ -167,7 +166,7 @@ def main() -> None:
             key="num_peaks",
             help="Choose one or two peaks for the intraday pattern.",
         )
-        st.slider(
+        st.number_input(
             "Peak Position 1",
             min_value=0.0,
             max_value=47.5,
@@ -175,7 +174,7 @@ def main() -> None:
             key="pos1",
             help="Peak center in intervals 0..48 (0=00:00, 24=12:00).",
         )
-        st.slider(
+        st.number_input(
             "Peak Width 1",
             min_value=1.0,
             max_value=24.0,
@@ -184,7 +183,7 @@ def main() -> None:
             help="Peak width in intervals. Sigma is width/2.",
         )
         if st.session_state["num_peaks"] == 2:
-            st.slider(
+            st.number_input(
                 "Peak Position 2",
                 min_value=0.0,
                 max_value=47.5,
@@ -192,7 +191,7 @@ def main() -> None:
                 key="pos2",
                 help="Second peak center. Must be greater than Peak Position 1.",
             )
-            st.slider(
+            st.number_input(
                 "Peak Width 2",
                 min_value=1.0,
                 max_value=24.0,
@@ -200,10 +199,9 @@ def main() -> None:
                 key="width2",
                 help="Second peak width in intervals. Sigma is width/2.",
             )
-        st.slider(
+        st.number_input(
             "Peak to Valley Ratio",
             min_value=1.0,
-            max_value=5.0,
             step=0.05,
             key="ratio_target",
             help="Ratio of peak to valley in intraday pattern. 1=flat, 2=double, 3=triple.",
@@ -220,7 +218,7 @@ def main() -> None:
         sim = run_simulation(
             v_week=int(st.session_state["v_week"]),
             aht=float(st.session_state["aht"]),
-            occ=float(st.session_state["occ"]),
+            occ=float(st.session_state["occ_pct"]) / 100.0,
             week_mode=str(st.session_state["week_mode"]),
             p=float(st.session_state["p"]),
             weekday_split=str(st.session_state["weekday_split"]),
@@ -240,8 +238,8 @@ def main() -> None:
     baseline = compute_baseline_summary(
         v_week=int(st.session_state["v_week"]),
         aht=float(st.session_state["aht"]),
-        occ=float(st.session_state["occ"]),
-        shk=float(st.session_state["shk"]),
+        occ=float(st.session_state["occ_pct"]) / 100.0,
+        shk=float(st.session_state["shk_pct"]) / 100.0,
         hg=float(st.session_state["hg"]),
         t_interval=T_INTERVAL_DEFAULT,
     )
@@ -285,8 +283,10 @@ def main() -> None:
     params = {
         "Weekly Volume": int(st.session_state["v_week"]),
         "AHT Seconds": float(st.session_state["aht"]),
-        "OCC": float(st.session_state["occ"]),
-        "SHK": float(st.session_state["shk"]),
+        "OCC Percent": float(st.session_state["occ_pct"]),
+        "SHK Percent": float(st.session_state["shk_pct"]),
+        "OCC": float(st.session_state["occ_pct"]) / 100.0,
+        "SHK": float(st.session_state["shk_pct"]) / 100.0,
         "Paid Hours Weekly": float(st.session_state["hg"]),
         "T Interval Hours": T_INTERVAL_DEFAULT,
         "Week Mode": str(st.session_state["week_mode"]),
