@@ -146,7 +146,7 @@ def main() -> None:
                 min_value=float(MIN_WEEKDAY_SHARE),
                 max_value=0.999,
                 step=0.001,
-                format="%.3f",
+                format="%.2f",
                 key="p",
                 help="Share of weekly volume assigned to weekdays (Mon-Fri).",
             )
@@ -183,6 +183,7 @@ def main() -> None:
             min_value=0.0,
             max_value=47.5,
             step=0.5,
+            format="%.2f",
             key="pos1",
             help="Peak center in intervals 0..48 (0=00:00, 24=12:00).",
         )
@@ -191,6 +192,7 @@ def main() -> None:
             min_value=1.0,
             max_value=24.0,
             step=0.5,
+            format="%.2f",
             key="width1",
             help="Peak width in intervals. Sigma is width/2.",
         )
@@ -200,6 +202,7 @@ def main() -> None:
                 min_value=0.0,
                 max_value=47.5,
                 step=0.5,
+                format="%.2f",
                 key="pos2",
                 help="Second peak center. Must be greater than Peak Position 1.",
             )
@@ -208,6 +211,7 @@ def main() -> None:
                 min_value=1.0,
                 max_value=24.0,
                 step=0.5,
+                format="%.2f",
                 key="width2",
                 help="Second peak width in intervals. Sigma is width/2.",
             )
@@ -222,6 +226,7 @@ def main() -> None:
                     "Peak Height Ratio",
                     min_value=1.0,
                     step=0.05,
+                    format="%.2f",
                     key="peak_ratio",
                     help="Height ratio used in peak1-higher or peak2-higher mode.",
                 )
@@ -229,6 +234,7 @@ def main() -> None:
             "Peak to Valley Ratio",
             min_value=1.0,
             step=0.05,
+            format="%.2f",
             key="ratio_target",
             help="Ratio of peak to valley in intraday pattern. 1=flat, 2=double, 3=triple.",
         )
@@ -276,8 +282,8 @@ def main() -> None:
     calls_week = sim.calls_matrix.reshape(-1)
 
     st.info(
-        f"Ratio target: {float(st.session_state['ratio_target']):.3f} | "
-        f"Ratio achieved: {sim.ratio_real:.3f} | Lambda: {sim.lmbda:.4f}"
+        f"Ratio target: {float(st.session_state['ratio_target']):.2f} | "
+        f"Ratio achieved: {sim.ratio_real:.2f} | Lambda: {sim.lmbda:.2f}"
     )
 
     st.subheader("Expected Calls (smooth)")
@@ -290,16 +296,16 @@ def main() -> None:
 
     st.subheader("Metrics")
     m1, m2, m3 = st.columns(3)
-    m1.metric("Target ratio", f"{float(st.session_state['ratio_target']):.3f}")
-    m2.metric("Achieved ratio", f"{sim.ratio_real:.3f}")
-    m3.metric("Lambda", f"{sim.lmbda:.4f}")
+    m1.metric("Target ratio", f"{float(st.session_state['ratio_target']):.2f}")
+    m2.metric("Achieved ratio", f"{sim.ratio_real:.2f}")
+    m3.metric("Lambda", f"{sim.lmbda:.2f}")
     m4, m5, m6 = st.columns(3)
-    m4.metric("Pattern min / max", f"{sim.intraday_pattern.min():.6f} / {sim.intraday_pattern.max():.6f}")
+    m4.metric("Pattern min / max", f"{sim.intraday_pattern.min():.2f} / {sim.intraday_pattern.max():.2f}")
     m5.metric("Calls sum", f"{int(sim.calls_matrix.sum())}")
     m6.metric("Calls min / max", f"{int(sim.calls_matrix.min())} / {int(sim.calls_matrix.max())}")
     m7, m8 = st.columns(2)
-    m7.metric("FTE min / max", f"{float(sim.fte_matrix.min()):.3f} / {float(sim.fte_matrix.max()):.3f}")
-    m8.metric("HC theoretical", f"{baseline.hc_teorico:.3f}")
+    m7.metric("FTE min / max", f"{float(sim.fte_matrix.min()):.2f} / {float(sim.fte_matrix.max()):.2f}")
+    m8.metric("HC theoretical", f"{baseline.hc_teorico:.2f}")
     if sim.ratio_capped:
         st.warning("Requested ratio is above max reachable for this shape. Using lambda = 1.")
 

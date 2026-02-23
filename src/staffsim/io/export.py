@@ -24,7 +24,13 @@ def export_matrix_csv(path: Path, matrix: np.ndarray) -> None:
         writer = csv.writer(fh)
         writer.writerow(_matrix_header())
         for day_idx, row in enumerate(matrix):
-            writer.writerow([DAY_LABELS[day_idx], *row.tolist()])
+            formatted_row: list[int | float] = []
+            for value in row.tolist():
+                if isinstance(value, (float, np.floating)):
+                    formatted_row.append(round(float(value), 2))
+                else:
+                    formatted_row.append(int(value))
+            writer.writerow([DAY_LABELS[day_idx], *formatted_row])
 
 
 def export_summary_csv(
@@ -51,7 +57,13 @@ def export_summary_csv(
     with path.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
         writer.writerow(["metric", "value"])
-        writer.writerows(rows)
+        formatted_rows: list[tuple[str, str | int | float]] = []
+        for key, value in rows:
+            if isinstance(value, (float, np.floating)):
+                formatted_rows.append((key, round(float(value), 2)))
+            else:
+                formatted_rows.append((key, value))
+        writer.writerows(formatted_rows)
 
 
 def export_params_txt(path: Path, params_text: str) -> None:
