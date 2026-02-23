@@ -100,6 +100,7 @@ def main() -> None:
             key="occ",
             help="Occupancy value as a percentage in decimal form (0 to 1).",
         )
+        st.caption(f"OCC shown as percent: {float(st.session_state['occ']) * 100:.1f}%")
         st.number_input(
             "SHK (0 to 1)",
             min_value=0.0,
@@ -109,6 +110,7 @@ def main() -> None:
             key="shk",
             help="Shrinkage value as a percentage in decimal form (0 to 1).",
         )
+        st.caption(f"SHK shown as percent: {float(st.session_state['shk']) * 100:.1f}%")
         st.number_input(
             "Paid Hours per Agent (weekly)",
             min_value=1.0,
@@ -322,4 +324,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
