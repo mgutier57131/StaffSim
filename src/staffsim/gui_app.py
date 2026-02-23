@@ -265,6 +265,11 @@ def main() -> None:
     calls_expected_week = sim.expected_matrix.reshape(-1)
     calls_week = sim.calls_matrix.reshape(-1)
 
+    st.info(
+        f"Ratio target: {float(st.session_state['ratio_target']):.3f} | "
+        f"Ratio achieved: {sim.ratio_real:.3f} | Lambda: {sim.lmbda:.4f}"
+    )
+
     st.subheader("Expected Calls (smooth)")
     expected_figure = _build_line_figure(calls_expected_week, "Expected Calls (smooth)", "Calls")
     st.pyplot(expected_figure, clear_figure=False, use_container_width=True)
