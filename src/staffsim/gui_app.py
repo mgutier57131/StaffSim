@@ -32,6 +32,8 @@ BASELINE_DEFAULTS: dict[str, Any] = {
     "width1": 10.0,
     "pos2": 36.0,
     "width2": 10.0,
+    "peak_ratio_mode": "equal",
+    "peak_ratio": 1.4,
     "ratio_target": 1.0,
 }
 
@@ -144,6 +146,7 @@ def main() -> None:
                 min_value=float(MIN_WEEKDAY_SHARE),
                 max_value=0.999,
                 step=0.001,
+                format="%.3f",
                 key="p",
                 help="Share of weekly volume assigned to weekdays (Mon-Fri).",
             )
@@ -199,6 +202,19 @@ def main() -> None:
                 key="width2",
                 help="Second peak width in intervals. Sigma is width/2.",
             )
+            st.selectbox(
+                "Peak Height Mode",
+                options=["equal", "peak1-higher", "peak2-higher"],
+                key="peak_ratio_mode",
+                help="Relative height between Peak 1 and Peak 2.",
+            )
+            st.number_input(
+                "Peak Height Ratio",
+                min_value=1.0,
+                step=0.05,
+                key="peak_ratio",
+                help="Height ratio used in peak1-higher or peak2-higher mode.",
+            )
         st.number_input(
             "Peak to Valley Ratio",
             min_value=1.0,
@@ -228,6 +244,8 @@ def main() -> None:
             ratio_target=float(st.session_state["ratio_target"]),
             pos2=float(st.session_state["pos2"]) if int(st.session_state["num_peaks"]) == 2 else None,
             width2=float(st.session_state["width2"]) if int(st.session_state["num_peaks"]) == 2 else None,
+            peak_ratio_mode=str(st.session_state["peak_ratio_mode"]) if int(st.session_state["num_peaks"]) == 2 else "equal",
+            peak_ratio=float(st.session_state["peak_ratio"]) if int(st.session_state["num_peaks"]) == 2 else 1.4,
             weekday_step=WEEKDAY_STEP_DEFAULT,
             t_interval=T_INTERVAL_DEFAULT,
         )
@@ -298,6 +316,8 @@ def main() -> None:
         "Peak Width 1": float(st.session_state["width1"]),
         "Peak Position 2": float(st.session_state["pos2"]) if int(st.session_state["num_peaks"]) == 2 else "",
         "Peak Width 2": float(st.session_state["width2"]) if int(st.session_state["num_peaks"]) == 2 else "",
+        "Peak Height Mode": str(st.session_state["peak_ratio_mode"]) if int(st.session_state["num_peaks"]) == 2 else "",
+        "Peak Height Ratio": float(st.session_state["peak_ratio"]) if int(st.session_state["num_peaks"]) == 2 else "",
         "Target Ratio": float(st.session_state["ratio_target"]),
         "Achieved Ratio": sim.ratio_real,
         "Lambda": sim.lmbda,

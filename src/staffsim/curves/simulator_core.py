@@ -8,7 +8,7 @@ import numpy as np
 
 WEEKDAY_STEP_DEFAULT = 0.02
 T_INTERVAL_DEFAULT = 0.5
-MIN_WEEKDAY_SHARE = 5.0 / 7.0
+MIN_WEEKDAY_SHARE = 0.714
 
 
 def build_day_weights(
@@ -48,6 +48,8 @@ def build_peak_shape_f(
     width1: float,
     pos2: float | None = None,
     width2: float | None = None,
+    peak_ratio_mode: str = "equal",
+    peak_ratio: float = 1.4,
     n_intervals: int = 48,
 ) -> np.ndarray:
     """Build smooth peak-only shape f_j (sum=1) using Gaussian bumps."""
@@ -66,6 +68,8 @@ def build_peak_shape_f(
             raise ValueError(f"pos2 must be in [0,{n_intervals}).")
         if pos2 <= pos1:
             raise ValueError("For 2 peaks, pos2 must be > pos1.")
+        if peak_ratio < 1.0:
+            raise ValueError("peak_ratio must be >= 1.0.")
 
     j = np.arange(n_intervals, dtype=float)
 
@@ -79,7 +83,18 @@ def build_peak_shape_f(
         f = g1
     else:
         g2 = _gaussian(float(pos2), float(width2))
-        f = 0.5 * g1 + 0.5 * g2
+        if peak_ratio_mode == "equal":
+            w1, w2 = 0.5, 0.5
+        elif peak_ratio_mode == "peak1-higher":
+            w1 = peak_ratio / (1.0 + peak_ratio)
+            w2 = 1.0 / (1.0 + peak_ratio)
+        elif peak_ratio_mode == "peak2-higher":
+            w1 = 1.0 / (1.0 + peak_ratio)
+            w2 = peak_ratio / (1.0 + peak_ratio)
+        else:
+            raise ValueError("peak_ratio_mode must be equal/peak1-higher/peak2-higher.")
+
+        f = w1 * g1 + w2 * g2
         f = f / float(f.sum())
 
     return f
@@ -134,6 +149,8 @@ def build_intraday_pattern_pj(
     ratio_target: float,
     pos2: float | None = None,
     width2: float | None = None,
+    peak_ratio_mode: str = "equal",
+    peak_ratio: float = 1.4,
     n_intervals: int = 48,
 ) -> tuple[np.ndarray, float, float, bool]:
     """
@@ -147,6 +164,8 @@ def build_intraday_pattern_pj(
         width1=width1,
         pos2=pos2,
         width2=width2,
+        peak_ratio_mode=peak_ratio_mode,
+        peak_ratio=peak_ratio,
         n_intervals=n_intervals,
     )
     lmbda, ratio_real, capped = solve_lambda_for_ratio(f=f, ratio_target=ratio_target, n_intervals=n_intervals)
@@ -226,6 +245,8 @@ def run_simulation(
     ratio_target: float,
     pos2: float | None = None,
     width2: float | None = None,
+    peak_ratio_mode: str = "equal",
+    peak_ratio: float = 1.4,
     weekday_step: float = WEEKDAY_STEP_DEFAULT,
     t_interval: float = T_INTERVAL_DEFAULT,
 ) -> SimulationResult:
@@ -241,6 +262,8 @@ def run_simulation(
         width1=width1,
         pos2=pos2,
         width2=width2,
+        peak_ratio_mode=peak_ratio_mode,
+        peak_ratio=peak_ratio,
         ratio_target=ratio_target,
     )
     expected_matrix = build_week_expected_matrix(v_week, day_weights, intraday_pattern)
