@@ -169,6 +169,15 @@ def main() -> None:
             key="num_peaks",
             help="Choose one or two peaks for the intraday pattern.",
         )
+        if st.session_state["num_peaks"] == 2:
+            pos1_now = float(st.session_state["pos1"])
+            pos2_now = float(st.session_state["pos2"])
+            if pos1_now >= 47.5:
+                st.session_state["pos1"] = 47.0
+                pos1_now = 47.0
+            if pos2_now <= pos1_now:
+                st.session_state["pos2"] = min(47.5, pos1_now + 0.5)
+
         st.number_input(
             "Peak Position 1",
             min_value=0.0,
