@@ -1,0 +1,2 @@
+"""Curve generation utilities."""
+
