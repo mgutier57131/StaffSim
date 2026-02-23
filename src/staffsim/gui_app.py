@@ -92,6 +92,13 @@ def _to_fraction(value: float) -> tuple[float, str]:
     return value / 100.0, "percent"
 
 
+def _local_peak_value(pattern: np.ndarray, center: float, window: int = 2) -> float:
+    idx = int(round(center))
+    lo = max(0, idx - window)
+    hi = min(len(pattern), idx + window + 1)
+    return float(np.max(pattern[lo:hi]))
+
+
 def main() -> None:
     st.set_page_config(page_title="StaffSim GUI", layout="wide")
     st.title("StaffSim - Weekly Curve Simulator")
@@ -312,6 +319,13 @@ def main() -> None:
 
     calls_expected_week = sim.expected_matrix.reshape(-1)
     calls_week = sim.calls_matrix.reshape(-1)
+    peak1_val = _local_peak_value(sim.intraday_pattern, float(st.session_state["pos1"]))
+    peak2_val = None
+    peak_ratio_real = None
+    if int(st.session_state["num_peaks"]) == 2:
+        peak2_val = _local_peak_value(sim.intraday_pattern, float(st.session_state["pos2"]))
+        if peak2_val > 0:
+            peak_ratio_real = peak1_val / peak2_val
 
     st.info(
         f"Ratio target: {float(st.session_state['ratio_target']):.2f} | "
@@ -338,6 +352,11 @@ def main() -> None:
     m7, m8 = st.columns(2)
     m7.metric("FTE min / max", f"{float(sim.fte_matrix.min()):.2f} / {float(sim.fte_matrix.max()):.2f}")
     m8.metric("HC theoretical", f"{baseline.hc_teorico:.2f}")
+    if peak2_val is not None:
+        m9, m10, m11 = st.columns(3)
+        m9.metric("Peak 1 value", f"{peak1_val:.2f}")
+        m10.metric("Peak 2 value", f"{peak2_val:.2f}")
+        m11.metric("Peak1/Peak2", f"{(peak_ratio_real or 0.0):.2f}")
     if sim.ratio_capped:
         st.warning("Requested ratio is above max reachable for this shape. Using lambda = 1.")
 

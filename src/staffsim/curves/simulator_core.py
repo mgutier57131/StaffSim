@@ -75,26 +75,25 @@ def build_peak_shape_f(
 
     def _gaussian(center: float, width: float) -> np.ndarray:
         sigma = width / 2.0
-        g = np.exp(-((j - center) ** 2) / (2.0 * sigma**2))
-        return g / float(g.sum())
+        return np.exp(-((j - center) ** 2) / (2.0 * sigma**2))
 
     g1 = _gaussian(pos1, width1)
     if num_peaks == 1:
-        f = g1
+        f = g1 / float(g1.sum())
     else:
         g2 = _gaussian(float(pos2), float(width2))
+        # Normalize each peak by its own crest so "equal" mode equalizes crest height.
+        g1n = g1 / float(np.max(g1))
+        g2n = g2 / float(np.max(g2))
         if peak_ratio_mode == "equal":
-            w1, w2 = 0.5, 0.5
+            a1, a2 = 1.0, 1.0
         elif peak_ratio_mode == "peak1-higher":
-            w1 = peak_ratio / (1.0 + peak_ratio)
-            w2 = 1.0 / (1.0 + peak_ratio)
+            a1, a2 = peak_ratio, 1.0
         elif peak_ratio_mode == "peak2-higher":
-            w1 = 1.0 / (1.0 + peak_ratio)
-            w2 = peak_ratio / (1.0 + peak_ratio)
+            a1, a2 = 1.0, peak_ratio
         else:
             raise ValueError("peak_ratio_mode must be equal/peak1-higher/peak2-higher.")
-
-        f = w1 * g1 + w2 * g2
+        f = a1 * g1n + a2 * g2n
         f = f / float(f.sum())
 
     return f

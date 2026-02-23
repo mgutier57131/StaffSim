@@ -50,3 +50,33 @@ def test_expected_and_rounding_sum_exact() -> None:
     assert int(calls.sum()) == v
     assert np.all(calls >= 0)
 
+
+def test_two_peak_crest_normalization_equal_and_ratio() -> None:
+    pos1, pos2 = 10.0, 36.0
+    width1, width2 = 6.0, 14.0
+
+    f_equal = build_peak_shape_f(
+        num_peaks=2,
+        pos1=pos1,
+        width1=width1,
+        pos2=pos2,
+        width2=width2,
+        peak_ratio_mode="equal",
+        peak_ratio=1.4,
+    )
+    f_ratio = build_peak_shape_f(
+        num_peaks=2,
+        pos1=pos1,
+        width1=width1,
+        pos2=pos2,
+        width2=width2,
+        peak_ratio_mode="peak1-higher",
+        peak_ratio=1.4,
+    )
+
+    i1, i2 = int(round(pos1)), int(round(pos2))
+    equal_ratio = float(f_equal[i1] / f_equal[i2])
+    ratio_mode_ratio = float(f_ratio[i1] / f_ratio[i2])
+
+    assert np.isclose(equal_ratio, 1.0, atol=0.05)
+    assert np.isclose(ratio_mode_ratio, 1.4, atol=0.08)
