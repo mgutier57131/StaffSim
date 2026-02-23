@@ -8,6 +8,7 @@ import numpy as np
 
 WEEKDAY_STEP_DEFAULT = 0.02
 T_INTERVAL_DEFAULT = 0.5
+MIN_WEEKDAY_SHARE = 5.0 / 7.0
 
 
 def build_day_weights(
@@ -22,8 +23,8 @@ def build_day_weights(
         return np.ones(7, dtype=float) / 7.0
     if week_mode != "W2":
         raise ValueError("week_mode must be W1 or W2.")
-    if p < 0.74 or p >= 1.0:
-        raise ValueError("For W2, p must satisfy 0.74 <= p < 1.")
+    if p < MIN_WEEKDAY_SHARE or p >= 1.0:
+        raise ValueError(f"For W2, p must satisfy {MIN_WEEKDAY_SHARE:.6f} <= p < 1.")
 
     if weekday_split == "uniform":
         m = np.array([1, 1, 1, 1, 1], dtype=float)
@@ -257,4 +258,3 @@ def run_simulation(
         lmbda=lmbda,
         ratio_capped=ratio_capped,
     )
-

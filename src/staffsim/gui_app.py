@@ -9,7 +9,12 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-from staffsim.curves.simulator_core import T_INTERVAL_DEFAULT, WEEKDAY_STEP_DEFAULT, run_simulation
+from staffsim.curves.simulator_core import (
+    MIN_WEEKDAY_SHARE,
+    T_INTERVAL_DEFAULT,
+    WEEKDAY_STEP_DEFAULT,
+    run_simulation,
+)
 from staffsim.io.export import DAY_LABELS, export_results
 from staffsim.workload.baseline import compute_baseline_summary
 
@@ -32,145 +37,170 @@ BASELINE_DEFAULTS: dict[str, Any] = {
 
 
 def _init_state() -> None:
-    for k, v in BASELINE_DEFAULTS.items():
-        if k not in st.session_state:
-            st.session_state[k] = v
+    for key, value in BASELINE_DEFAULTS.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
 
 
 def _reset_baseline() -> None:
-    for k, v in BASELINE_DEFAULTS.items():
-        st.session_state[k] = v
+    for key, value in BASELINE_DEFAULTS.items():
+        st.session_state[key] = value
 
 
 def _build_line_figure(y: np.ndarray, title: str, ylabel: str) -> plt.Figure:
     fig, ax = plt.subplots(figsize=(12, 3.6))
     x = np.arange(336)
     ax.plot(x, y, linewidth=1.5)
-    for d in range(1, 7):
-        ax.axvline(48 * d, color="gray", linewidth=0.8, alpha=0.35)
+    for day_idx in range(1, 7):
+        ax.axvline(48 * day_idx, color="gray", linewidth=0.8, alpha=0.35)
     ax.set_title(title)
     ax.set_xlabel("Time (30-min intervals across week)")
     ax.set_ylabel(ylabel)
-    ax.set_xticks([48 * d for d in range(7)], [f"{DAY_LABELS[d]} 00:00" for d in range(7)], rotation=30)
+    ax.set_xticks([48 * day for day in range(7)], [f"{DAY_LABELS[day]} 00:00" for day in range(7)], rotation=30)
     fig.tight_layout()
     return fig
 
 
 def _build_params_text(params: dict[str, Any]) -> str:
     lines = ["StaffSim GUI Parameters", "====================="]
-    for k, v in params.items():
-        lines.append(f"{k}: {v}")
+    for key, value in params.items():
+        lines.append(f"{key}: {value}")
     return "\n".join(lines) + "\n"
 
 
 def main() -> None:
     st.set_page_config(page_title="StaffSim GUI", layout="wide")
-    st.title("StaffSim - Simulador de Curvas")
+    st.title("StaffSim - Weekly Curve Simulator")
     _init_state()
 
     with st.sidebar:
-        st.header("A) Volumen y parámetros WFM")
+        st.header("A) Volume and WFM Parameters")
         st.number_input(
-            "V (calls/semana)",
+            "Weekly Volume (calls)",
             min_value=1000,
             max_value=200000,
             step=100,
             key="v_week",
-            help="Volumen total semanal (calls).",
+            help="Total weekly volume in calls.",
         )
         st.number_input(
-            "AHT (segundos)",
+            "AHT (seconds)",
             min_value=1.0,
             max_value=3600.0,
             step=5.0,
             key="aht",
-            help="Average Handle Time en segundos por call.",
+            help="Average handle time in seconds per call.",
         )
-        st.slider("OCC", min_value=0.50, max_value=0.95, step=0.01, key="occ", help="Ocupación objetivo.")
-        st.slider("SHK", min_value=0.00, max_value=0.40, step=0.01, key="shk", help="Shrinkage.")
-        st.number_input("Hg", min_value=1.0, max_value=100.0, step=1.0, key="hg", help="Horas pagas por agente a la semana.")
-        st.button("Reset a Curva Plana", on_click=_reset_baseline)
+        st.number_input(
+            "OCC (0 to 1)",
+            min_value=0.0,
+            max_value=1.0,
+            step=0.01,
+            format="%.3f",
+            key="occ",
+            help="Occupancy value as a percentage in decimal form (0 to 1).",
+        )
+        st.number_input(
+            "SHK (0 to 1)",
+            min_value=0.0,
+            max_value=1.0,
+            step=0.01,
+            format="%.3f",
+            key="shk",
+            help="Shrinkage value as a percentage in decimal form (0 to 1).",
+        )
+        st.number_input(
+            "Paid Hours per Agent (weekly)",
+            min_value=1.0,
+            max_value=100.0,
+            step=1.0,
+            key="hg",
+            help="Paid hours per agent per week.",
+        )
 
         st.divider()
-        st.header("B) Semana")
+        st.header("B) Weekly Distribution")
         st.selectbox(
-            "week_mode",
+            "Week Mode",
             options=["W1", "W2"],
             key="week_mode",
-            help="W1: distribución uniforme. W2: L-V vs fin de semana.",
+            help="W1: uniform by day. W2: weekdays versus weekend split.",
         )
         if st.session_state["week_mode"] == "W2":
             st.slider(
-                "p (share L-V)",
-                min_value=0.74,
+                "Weekday Share p (Mon-Fri)",
+                min_value=float(MIN_WEEKDAY_SHARE),
                 max_value=0.95,
-                step=0.01,
+                step=0.001,
                 key="p",
-                help="Porcentaje del volumen semanal asignado a L-V.",
+                help="Share of weekly volume assigned to weekdays (Mon-Fri).",
             )
             st.selectbox(
-                "weekday_split",
+                "Weekday Split",
                 options=["uniform", "increasing-to-friday", "decreasing-to-friday"],
                 key="weekday_split",
-                help="Cómo se reparte el volumen entre Mon..Fri.",
+                help="How weekday volume is distributed from Monday to Friday.",
             )
         else:
             st.session_state["weekday_split"] = "uniform"
 
-        st.caption(f"weekday_step fijo: {WEEKDAY_STEP_DEFAULT:.2f}")
+        st.caption(f"Weekday step is fixed at {WEEKDAY_STEP_DEFAULT:.2f} (2%).")
 
         st.divider()
-        st.header("C) Intradía")
+        st.header("C) Intraday Shape")
         st.selectbox(
-            "num_peaks",
+            "Number of Peaks",
             options=[1, 2],
             key="num_peaks",
-            help="Cantidad de picos del patrón intradía.",
+            help="Choose one or two peaks for the intraday pattern.",
         )
         st.slider(
-            "pos1",
+            "Peak Position 1",
             min_value=0.0,
             max_value=47.5,
             step=0.5,
             key="pos1",
-            help="Centro del pico en intervalos 0..48 (0=00:00, 24=12:00).",
+            help="Peak center in intervals 0..48 (0=00:00, 24=12:00).",
         )
         st.slider(
-            "width1",
+            "Peak Width 1",
             min_value=1.0,
             max_value=24.0,
             step=0.5,
             key="width1",
-            help="Ancho del pico (intervalos). Controla sigma = width/2.",
+            help="Peak width in intervals. Sigma is width/2.",
         )
         if st.session_state["num_peaks"] == 2:
             st.slider(
-                "pos2",
+                "Peak Position 2",
                 min_value=0.0,
                 max_value=47.5,
                 step=0.5,
                 key="pos2",
-                help="Centro del segundo pico (debe ser mayor a pos1).",
+                help="Second peak center. Must be greater than Peak Position 1.",
             )
             st.slider(
-                "width2",
+                "Peak Width 2",
                 min_value=1.0,
                 max_value=24.0,
                 step=0.5,
                 key="width2",
-                help="Ancho del segundo pico (intervalos).",
+                help="Second peak width in intervals. Sigma is width/2.",
             )
         st.slider(
-            "ratio_target",
+            "Peak to Valley Ratio",
             min_value=1.0,
             max_value=5.0,
             step=0.05,
             key="ratio_target",
-            help="Relación pico/valle del patrón intradía. 1=plano, 2=doble, 3=triple.",
+            help="Ratio of peak to valley in intraday pattern. 1=flat, 2=double, 3=triple.",
         )
 
+        st.divider()
+        st.button("Reset to Flat Curve", on_click=_reset_baseline)
+
     if st.session_state["num_peaks"] == 2 and float(st.session_state["pos2"]) <= float(st.session_state["pos1"]):
-        st.error("Validación: para 2 picos, pos2 debe ser mayor que pos1.")
+        st.error("Validation error: for two peaks, Peak Position 2 must be greater than Peak Position 1.")
         return
 
     try:
@@ -206,59 +236,66 @@ def main() -> None:
     calls_expected_week = sim.expected_matrix.reshape(-1)
     calls_week = sim.calls_matrix.reshape(-1)
 
-    left_col, right_col = st.columns([1, 2.4])
+    st.subheader("Expected Calls (smooth)")
+    expected_figure = _build_line_figure(calls_expected_week, "Expected Calls (smooth)", "Calls")
+    st.pyplot(expected_figure, clear_figure=False, use_container_width=True)
 
-    with left_col:
-        st.subheader("Métricas")
-        st.metric("ratio logrado", f"{sim.ratio_real:.3f}")
-        st.metric("lambda", f"{sim.lmbda:.4f}")
-        st.metric("p_min / p_max", f"{sim.intraday_pattern.min():.6f} / {sim.intraday_pattern.max():.6f}")
-        st.metric("sum calls", f"{int(sim.calls_matrix.sum())}")
-        st.metric("calls min / max", f"{int(sim.calls_matrix.min())} / {int(sim.calls_matrix.max())}")
-        st.metric("fte min / max", f"{float(sim.fte_matrix.min()):.3f} / {float(sim.fte_matrix.max()):.3f}")
-        if sim.ratio_capped:
-            st.warning("ratio máximo alcanzable con esta forma: se usó lambda=1.")
+    st.subheader("Final Integer Calls")
+    calls_figure = _build_line_figure(calls_week, "Final Integer Calls", "Calls")
+    st.pyplot(calls_figure, clear_figure=False, use_container_width=True)
 
-        st.subheader("Pesos semanales")
-        w_df = pd.DataFrame({"Dia": DAY_LABELS, "weight": np.round(sim.day_weights, 6), "%": np.round(sim.day_weights * 100, 3)})
-        st.dataframe(w_df, hide_index=True, use_container_width=True)
+    st.subheader("Metrics")
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Target ratio", f"{float(st.session_state['ratio_target']):.3f}")
+    m2.metric("Achieved ratio", f"{sim.ratio_real:.3f}")
+    m3.metric("Lambda", f"{sim.lmbda:.4f}")
+    m4, m5, m6 = st.columns(3)
+    m4.metric("Pattern min / max", f"{sim.intraday_pattern.min():.6f} / {sim.intraday_pattern.max():.6f}")
+    m5.metric("Calls sum", f"{int(sim.calls_matrix.sum())}")
+    m6.metric("Calls min / max", f"{int(sim.calls_matrix.min())} / {int(sim.calls_matrix.max())}")
+    m7, m8 = st.columns(2)
+    m7.metric("FTE min / max", f"{float(sim.fte_matrix.min()):.3f} / {float(sim.fte_matrix.max()):.3f}")
+    m8.metric("HC theoretical", f"{baseline.hc_teorico:.3f}")
+    if sim.ratio_capped:
+        st.warning("Requested ratio is above max reachable for this shape. Using lambda = 1.")
 
-    with right_col:
-        st.subheader("Calls esperadas (smooth)")
-        exp_fig = _build_line_figure(calls_expected_week, "Calls esperadas (smooth)", "Calls")
-        st.pyplot(exp_fig, clear_figure=False, use_container_width=True)
-
-        st.subheader("Calls enteras finales")
-        calls_fig = _build_line_figure(calls_week, "Calls enteras finales", "Calls")
-        st.pyplot(calls_fig, clear_figure=False, use_container_width=True)
+    st.subheader("Weekly Day Weights")
+    weights_df = pd.DataFrame(
+        {
+            "Day": DAY_LABELS,
+            "Weight": np.round(sim.day_weights, 6),
+            "Percent": np.round(sim.day_weights * 100, 3),
+        }
+    )
+    st.dataframe(weights_df, hide_index=True, use_container_width=True)
 
     params = {
-        "V": int(st.session_state["v_week"]),
-        "AHT": float(st.session_state["aht"]),
+        "Weekly Volume": int(st.session_state["v_week"]),
+        "AHT Seconds": float(st.session_state["aht"]),
         "OCC": float(st.session_state["occ"]),
         "SHK": float(st.session_state["shk"]),
-        "Hg": float(st.session_state["hg"]),
-        "T": T_INTERVAL_DEFAULT,
-        "week_mode": str(st.session_state["week_mode"]),
-        "p": float(st.session_state["p"]) if str(st.session_state["week_mode"]) == "W2" else "",
-        "weekday_split": str(st.session_state["weekday_split"]) if str(st.session_state["week_mode"]) == "W2" else "",
-        "weekday_step": WEEKDAY_STEP_DEFAULT,
-        "num_peaks": int(st.session_state["num_peaks"]),
-        "pos1": float(st.session_state["pos1"]),
-        "width1": float(st.session_state["width1"]),
-        "pos2": float(st.session_state["pos2"]) if int(st.session_state["num_peaks"]) == 2 else "",
-        "width2": float(st.session_state["width2"]) if int(st.session_state["num_peaks"]) == 2 else "",
-        "ratio_target": float(st.session_state["ratio_target"]),
-        "ratio_real": sim.ratio_real,
-        "lambda": sim.lmbda,
-        "ratio_capped": sim.ratio_capped,
-        "calls_generation": "largest_remainder",
-        "day_weights_mon_sun": [float(x) for x in sim.day_weights.tolist()],
+        "Paid Hours Weekly": float(st.session_state["hg"]),
+        "T Interval Hours": T_INTERVAL_DEFAULT,
+        "Week Mode": str(st.session_state["week_mode"]),
+        "Weekday Share p": float(st.session_state["p"]) if str(st.session_state["week_mode"]) == "W2" else "",
+        "Weekday Split": str(st.session_state["weekday_split"]) if str(st.session_state["week_mode"]) == "W2" else "",
+        "Weekday Step": WEEKDAY_STEP_DEFAULT,
+        "Number of Peaks": int(st.session_state["num_peaks"]),
+        "Peak Position 1": float(st.session_state["pos1"]),
+        "Peak Width 1": float(st.session_state["width1"]),
+        "Peak Position 2": float(st.session_state["pos2"]) if int(st.session_state["num_peaks"]) == 2 else "",
+        "Peak Width 2": float(st.session_state["width2"]) if int(st.session_state["num_peaks"]) == 2 else "",
+        "Target Ratio": float(st.session_state["ratio_target"]),
+        "Achieved Ratio": sim.ratio_real,
+        "Lambda": sim.lmbda,
+        "Ratio Capped": sim.ratio_capped,
+        "Calls Generation": "largest remainder",
+        "Day Weights Mon-Sun": [float(x) for x in sim.day_weights.tolist()],
     }
     params_text = _build_params_text(params)
 
-    if st.button("Exportar corrida", type="primary"):
-        out_dir = export_results(
+    if st.button("Export Run", type="primary"):
+        output_dir = export_results(
             calls_matrix=sim.calls_matrix,
             calls_expected_matrix=sim.expected_matrix,
             fte_matrix=sim.fte_matrix,
@@ -266,8 +303,8 @@ def main() -> None:
             summary=baseline,
             params_text=params_text,
             extra_metrics={
-                "ratio_target": float(st.session_state["ratio_target"]),
-                "ratio_real": float(sim.ratio_real),
+                "target_ratio": float(st.session_state["ratio_target"]),
+                "achieved_ratio": float(sim.ratio_real),
                 "lambda": float(sim.lmbda),
                 "intraday_p_min": float(sim.intraday_pattern.min()),
                 "intraday_p_max": float(sim.intraday_pattern.max()),
@@ -277,10 +314,10 @@ def main() -> None:
                 "fte_min": float(sim.fte_matrix.min()),
                 "fte_max": float(sim.fte_matrix.max()),
             },
-            figure=calls_fig,
+            figure=calls_figure,
             base_dir="results",
         )
-        st.success(f"Saved results to: {out_dir.as_posix()}/")
+        st.success(f"Saved results to: {output_dir.as_posix()}/")
 
 
 if __name__ == "__main__":

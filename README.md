@@ -27,7 +27,7 @@ Al abrir, inicia en **Curva plana**:
 
 - `W1`: uniforme, `w_i = 1/7`
 - `W2`: L-V vs fin de semana
-  - `p` (share L-V), con validacion `p >= 0.74`
+  - `p` (share L-V), con validacion `p >= 5/7` (`0.714286`)
   - `weekday_split`:
     - `uniform`
     - `increasing-to-friday` (step 2%)
@@ -83,4 +83,3 @@ con:
 ```powershell
 python -m pytest -q
 ```
-
