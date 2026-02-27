@@ -73,8 +73,26 @@ def ensure_run_inputs(run_dir: Path) -> None:
 
 
 def make_final_output_dir(run_dir: Path, mode: str) -> Path:
-    out = run_dir / "schedule" / mode / "final"
+    out = run_dir / "schedule" / mode
     out.mkdir(parents=True, exist_ok=True)
+    # Best-effort cleanup of prior outputs to keep a single folder per mode.
+    for name in [
+        "required_matrix.csv",
+        "planned_matrix.csv",
+        "under_matrix.csv",
+        "over_matrix.csv",
+        "delta_matrix.csv",
+        "schedule_detail.csv",
+        "ilp_summary.csv",
+        "schedule_curve.png",
+        "search_log.txt",
+    ]:
+        p = out / name
+        if p.exists():
+            try:
+                p.unlink()
+            except OSError:
+                pass
     return out
 
 

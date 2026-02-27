@@ -102,7 +102,7 @@ python -m staffsim.schedule --mode both --time-limit 30 --workers 8
 
 Outputs finales por run (solo N minimo exitoso):
 
-`results/<run_id>/schedule/<mode>/final/`
+`results/<run_id>/schedule/<mode>/`
 
 - `required_matrix.csv`
 - `planned_matrix.csv`

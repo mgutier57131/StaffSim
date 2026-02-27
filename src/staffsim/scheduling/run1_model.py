@@ -70,6 +70,13 @@ def solve_run1(
         model.Add(sum(y[(k, d)] for d in range(days)) == 6)
         model.Add(sum(s_start[(k, r)] for r in starts) == 1)
 
+        # Feasible hint: work Mon-Sat, off Sun; fixed weekly start by employee.
+        hinted_start = (3 * k) % 35
+        for d in range(days):
+            model.AddHint(y[(k, d)], 1 if d < 6 else 0)
+        for r in starts:
+            model.AddHint(s_start[(k, r)], 1 if r == hinted_start else 0)
+
     starts_covering: dict[int, list[int]] = {}
     for j in range(intervals):
         starts_covering[j] = [r for r in starts if r <= j <= r + 13]

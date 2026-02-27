@@ -37,7 +37,7 @@ def _matrix_intervals_x_days(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _run_sched_summary(run_dir: Path, mode: str) -> dict[str, str]:
-    summary_path = run_dir / "schedule" / mode / "final" / "ilp_summary.csv"
+    summary_path = run_dir / "schedule" / mode / "ilp_summary.csv"
     if not summary_path.exists():
         return {}
     return _read_metric_csv(summary_path)
@@ -109,7 +109,7 @@ def main() -> None:
             st.info("No scheduling final outputs found yet for run1/run2.")
 
     with tab_r1_m:
-        base = run_dir / "schedule" / "run1" / "final"
+        base = run_dir / "schedule" / "run1"
         if not base.exists():
             st.info("Run1 final folder not found.")
         else:
@@ -120,14 +120,14 @@ def main() -> None:
                     st.dataframe(_matrix_intervals_x_days(_read_matrix(p)), use_container_width=True)
 
     with tab_r1_h:
-        p = run_dir / "schedule" / "run1" / "final" / "schedule_detail.csv"
+        p = run_dir / "schedule" / "run1" / "schedule_detail.csv"
         if p.exists():
             st.dataframe(pd.read_csv(p), use_container_width=True, hide_index=True)
         else:
             st.info("Run1 schedule_detail.csv not found.")
 
     with tab_r2_m:
-        base = run_dir / "schedule" / "run2" / "final"
+        base = run_dir / "schedule" / "run2"
         if not base.exists():
             st.info("Run2 final folder not found.")
         else:
@@ -138,7 +138,7 @@ def main() -> None:
                     st.dataframe(_matrix_intervals_x_days(_read_matrix(p)), use_container_width=True)
 
     with tab_r2_h:
-        p = run_dir / "schedule" / "run2" / "final" / "schedule_detail.csv"
+        p = run_dir / "schedule" / "run2" / "schedule_detail.csv"
         if p.exists():
             st.dataframe(pd.read_csv(p), use_container_width=True, hide_index=True)
         else:
@@ -147,4 +147,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
