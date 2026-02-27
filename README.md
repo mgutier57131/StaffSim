@@ -90,23 +90,37 @@ Comandos:
 ```powershell
 python -m staffsim.schedule --run results/<run_id> --mode run1
 python -m staffsim.schedule --run results/<run_id> --mode run2
+python -m staffsim.schedule --run results/<run_id> --mode both
 ```
 
 Si `--run` no se pasa, usa el ultimo run en `./results/`.
+Se puede ajustar solver:
 
-Outputs por cada N probado:
+```powershell
+python -m staffsim.schedule --mode both --time-limit 30 --workers 8
+```
 
-`results/<run_id>/schedule/<mode>/N_<N>/`
+Outputs finales por run (solo N minimo exitoso):
+
+`results/<run_id>/schedule/<mode>/final/`
 
 - `required_matrix.csv`
 - `planned_matrix.csv`
 - `under_matrix.csv`
 - `over_matrix.csv`
 - `delta_matrix.csv`
+- `schedule_detail.csv`
 - `ilp_summary.csv`
-
-Para el N final minimo que cumple cobertura, tambien:
+- `search_log.txt`
 - `schedule_curve.png`
+
+## Review App
+
+App unificada para comparar KPIs de demanda + Run1/Run2:
+
+```powershell
+python -m streamlit run src/staffsim/review_app.py
+```
 
 ## Tests
 

@@ -72,8 +72,8 @@ def ensure_run_inputs(run_dir: Path) -> None:
             raise FileNotFoundError(f"Missing required input: {run_dir / name}")
 
 
-def make_output_dir(run_dir: Path, mode: str, n_agents: int) -> Path:
-    out = run_dir / "schedule" / mode / f"N_{n_agents}"
+def make_final_output_dir(run_dir: Path, mode: str) -> Path:
+    out = run_dir / "schedule" / mode / "final"
     out.mkdir(parents=True, exist_ok=True)
     return out
 
@@ -87,6 +87,16 @@ def write_matrix_csv(path: Path, matrix: np.ndarray) -> None:
         for day_idx, row in enumerate(matrix):
             formatted = [round(float(v), 2) for v in row.tolist()]
             writer.writerow([DAY_LABELS[day_idx], *formatted])
+
+
+def write_schedule_detail(path: Path, detail_df: pd.DataFrame) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    detail_df.to_csv(path, index=False)
+
+
+def write_search_log(path: Path, lines: list[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def write_ilp_summary(
@@ -118,4 +128,3 @@ def write_ilp_summary(
         writer = csv.writer(fh)
         writer.writerow(["metric", "value"])
         writer.writerows(rows)
-

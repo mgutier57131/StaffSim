@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+import pandas as pd
 from ortools.sat.python import cp_model
 
 SCALE = 100
@@ -18,6 +19,7 @@ class ModelSolveResult:
     objective_value: float
     runtime_sec: float
     planned_matrix: np.ndarray
+    schedule_detail: pd.DataFrame
 
 
 def _status_name(status: int) -> str:
@@ -46,7 +48,20 @@ def _build_options(intervals: int = 48) -> tuple[list[tuple[int, int]], dict[int
     return options, covers
 
 
-def solve_run2(required_matrix: np.ndarray, n_agents: int, time_limit_sec: float = 30.0) -> ModelSolveResult:
+def _fmt_slot(start_interval: int, length: int) -> str:
+    start_minutes = start_interval * 30
+    end_minutes = (start_interval + length) * 30
+    sh, sm = divmod(start_minutes, 60)
+    eh, em = divmod(end_minutes, 60)
+    return f"{int(sh):02d}:{int(sm):02d}-{int(eh):02d}:{int(em):02d}"
+
+
+def solve_run2(
+    required_matrix: np.ndarray,
+    n_agents: int,
+    time_limit_sec: float = 30.0,
+    num_workers: int | None = None,
+) -> ModelSolveResult:
     days, intervals = required_matrix.shape
     if (days, intervals) != (7, 48):
         raise ValueError(f"Run2 expects 7x48 matrix, got {required_matrix.shape}")
@@ -90,16 +105,32 @@ def solve_run2(required_matrix: np.ndarray, n_agents: int, time_limit_sec: float
 
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = time_limit_sec
+    if num_workers is not None and num_workers > 0:
+        solver.parameters.num_search_workers = int(num_workers)
     status = solver.Solve(model)
     status_name = _status_name(status)
 
     planned = np.zeros((days, intervals), dtype=float)
+    schedule_rows: list[dict[str, str | int]] = []
     objective_value = float("inf")
     if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         objective_value = float(solver.ObjectiveValue()) / SCALE
         for d in range(days):
             for j in range(intervals):
                 planned[d, j] = float(sum(solver.Value(s_opt[(k, d, o)]) for k in range(n_agents) for o in covers[j]))
+        day_cols = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        for k in range(n_agents):
+            row: dict[str, str | int] = {"employee": k + 1}
+            for d_idx, day_name in enumerate(day_cols):
+                chosen = [o for o in range(option_count) if solver.Value(s_opt[(k, d_idx, o)]) == 1]
+                if not chosen:
+                    row[day_name] = "OFF"
+                else:
+                    start, length = options[chosen[0]]
+                    row[day_name] = _fmt_slot(start, length)
+            schedule_rows.append(row)
+
+    schedule_detail = pd.DataFrame(schedule_rows) if schedule_rows else pd.DataFrame(columns=["employee", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
 
     return ModelSolveResult(
         mode="run2",
@@ -108,5 +139,5 @@ def solve_run2(required_matrix: np.ndarray, n_agents: int, time_limit_sec: float
         objective_value=objective_value,
         runtime_sec=float(solver.WallTime()),
         planned_matrix=planned,
+        schedule_detail=schedule_detail,
     )
-
