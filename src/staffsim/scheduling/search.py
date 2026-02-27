@@ -79,7 +79,7 @@ def _solve_single(
 
 
 def _trial_ok(trial: TrialResult, target: float) -> bool:
-    return trial.solver_status in {"OPTIMAL", "FEASIBLE"} and trial.coverage >= target
+    return trial.solver_status in {"OPTIMAL", "FEASIBLE", "FEASIBLE_FALLBACK"} and trial.coverage >= target
 
 
 def _log_trial(prefix: str, trial: TrialResult, target: float, log_lines: list[str]) -> None:
@@ -271,4 +271,3 @@ def find_min_n(
         final_output_dir=out_dir,
         trials=sorted(trials.values(), key=lambda t: t.n_agents),
     )
-
