@@ -40,6 +40,8 @@ def export_summary_csv(
     extra_metrics: dict[str, float] | None = None,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    h_prod_noshk = summary.h_prod
+    hc_gross = h_prod_noshk / summary.hg
     rows: list[tuple[str, str | int | float]] = []
     rows.extend(params.items())
     rows.extend(
@@ -50,6 +52,10 @@ def export_summary_csv(
             ("HC_teorico", summary.hc_teorico),
             ("HC_teorico_ceil", math.ceil(summary.hc_teorico)),
             ("HC_teorico_round", round(summary.hc_teorico, 3)),
+            ("H_prod_noSHK", h_prod_noshk),
+            ("HC_gross", hc_gross),
+            ("HC_gross_ceil", math.ceil(hc_gross)),
+            ("HC_gross_round", round(hc_gross, 3)),
         ]
     )
     if extra_metrics:
@@ -82,12 +88,21 @@ def export_all(
     extra_metrics: dict[str, float] | None = None,
 ) -> None:
     out = Path(output_dir)
+    h_prod_noshk = summary.h_prod
+    hc_gross = h_prod_noshk / summary.hg
+    params_text_with_gross = (
+        params_text
+        + f"H_prod_noSHK: {round(h_prod_noshk, 3)}\n"
+        + f"HC_gross: {round(hc_gross, 3)}\n"
+        + f"HC_gross_ceil: {math.ceil(hc_gross)}\n"
+        + f"HC_gross_round: {round(hc_gross, 3)}\n"
+    )
     if calls_expected_matrix is not None:
         export_matrix_csv(out / "expected_curve.csv", calls_expected_matrix)
     export_matrix_csv(out / "calls_matrix.csv", calls_matrix)
     export_matrix_csv(out / "fte_matrix.csv", fte_matrix)
     export_summary_csv(out / "summary.csv", params=params, summary=summary, extra_metrics=extra_metrics)
-    export_params_txt(out / "params.txt", params_text=params_text)
+    export_params_txt(out / "params.txt", params_text=params_text_with_gross)
 
 
 def export_results(
@@ -117,4 +132,8 @@ def export_results(
     if figure is not None:
         out.mkdir(parents=True, exist_ok=True)
         figure.savefig(out / "curve.png", dpi=150)
+    h_prod_noshk = summary.h_prod
+    hc_gross = h_prod_noshk / summary.hg
+    print(f"HC_gross: {hc_gross:.3f}")
+    print(f"HC_gross_ceil: {math.ceil(hc_gross)}")
     return out
