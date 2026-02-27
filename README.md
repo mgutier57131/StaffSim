@@ -1,6 +1,7 @@
 # StaffSim - Simulador de Curvas 7x48
 
 Simulador para calibrar curvas de calls por intervalo (7 dias x 48 intervalos) y convertirlas a FTE.
+Incluye modulo de scheduling ILP (OR-Tools CP-SAT) para planificar cobertura sobre `fte_matrix.csv`.
 
 ## Instalacion
 
@@ -77,6 +78,35 @@ con:
 - `summary.csv`
 - `params.txt`
 - `curve.png`
+
+## Scheduling ILP (CP-SAT)
+
+Entrada:
+- `results/<run_id>/fte_matrix.csv` (requerido R, 7x48)
+- `results/<run_id>/summary.csv` (`HC_gross_ceil` como `N0`)
+
+Comandos:
+
+```powershell
+python -m staffsim.schedule --run results/<run_id> --mode run1
+python -m staffsim.schedule --run results/<run_id> --mode run2
+```
+
+Si `--run` no se pasa, usa el ultimo run en `./results/`.
+
+Outputs por cada N probado:
+
+`results/<run_id>/schedule/<mode>/N_<N>/`
+
+- `required_matrix.csv`
+- `planned_matrix.csv`
+- `under_matrix.csv`
+- `over_matrix.csv`
+- `delta_matrix.csv`
+- `ilp_summary.csv`
+
+Para el N final minimo que cumple cobertura, tambien:
+- `schedule_curve.png`
 
 ## Tests
 
