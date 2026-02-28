@@ -36,6 +36,37 @@ def _matrix_intervals_x_days(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def _show_matrices_compact(base: Path) -> None:
+    matrix_names = [
+        ("required_matrix.csv", "Required"),
+        ("planned_matrix.csv", "Planned"),
+        ("under_matrix.csv", "Under"),
+        ("over_matrix.csv", "Over"),
+        ("delta_matrix.csv", "Delta"),
+    ]
+    loaded: list[tuple[str, pd.DataFrame]] = []
+    for filename, label in matrix_names:
+        path = base / filename
+        if path.exists():
+            loaded.append((label, _matrix_intervals_x_days(_read_matrix(path))))
+    if not loaded:
+        st.info("No matrices found.")
+        return
+
+    # Show two tables per row to reduce vertical space and improve side-by-side comparison.
+    for idx in range(0, len(loaded), 2):
+        col1, col2 = st.columns(2)
+        label1, df1 = loaded[idx]
+        with col1:
+            st.markdown(f"**{label1}**")
+            st.dataframe(df1, use_container_width=True, height=420)
+        if idx + 1 < len(loaded):
+            label2, df2 = loaded[idx + 1]
+            with col2:
+                st.markdown(f"**{label2}**")
+                st.dataframe(df2, use_container_width=True, height=420)
+
+
 def _run_sched_summary(run_dir: Path, mode: str) -> dict[str, str]:
     summary_path = run_dir / "schedule" / mode / "ilp_summary.csv"
     if not summary_path.exists():
@@ -113,11 +144,7 @@ def main() -> None:
         if not base.exists():
             st.info("Run1 final folder not found.")
         else:
-            for name in ["required_matrix.csv", "planned_matrix.csv", "under_matrix.csv", "over_matrix.csv", "delta_matrix.csv"]:
-                p = base / name
-                if p.exists():
-                    st.markdown(f"**{name}**")
-                    st.dataframe(_matrix_intervals_x_days(_read_matrix(p)), use_container_width=True)
+            _show_matrices_compact(base)
 
     with tab_r1_h:
         p = run_dir / "schedule" / "run1" / "schedule_detail.csv"
@@ -131,11 +158,7 @@ def main() -> None:
         if not base.exists():
             st.info("Run2 final folder not found.")
         else:
-            for name in ["required_matrix.csv", "planned_matrix.csv", "under_matrix.csv", "over_matrix.csv", "delta_matrix.csv"]:
-                p = base / name
-                if p.exists():
-                    st.markdown(f"**{name}**")
-                    st.dataframe(_matrix_intervals_x_days(_read_matrix(p)), use_container_width=True)
+            _show_matrices_compact(base)
 
     with tab_r2_h:
         p = run_dir / "schedule" / "run2" / "schedule_detail.csv"
