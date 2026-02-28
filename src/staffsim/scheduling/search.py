@@ -62,6 +62,14 @@ def _solve_single(
     else:
         solved = solve_run2(required, n_agents=n_agents, time_limit_sec=time_limit_sec, num_workers=num_workers)
 
+    # Retry once with extra time when solver fails to produce a solution.
+    if solved.solver_status == "UNKNOWN":
+        retry_limit = max(time_limit_sec * 2.0, time_limit_sec + 30.0)
+        if mode == "run1":
+            solved = solve_run1(required, n_agents=n_agents, time_limit_sec=retry_limit, num_workers=num_workers)
+        else:
+            solved = solve_run2(required, n_agents=n_agents, time_limit_sec=retry_limit, num_workers=num_workers)
+
     planned = solved.planned_matrix
     under, over, _ = compute_under_over_delta(required, planned)
     coverage = compute_coverage(required, under)
@@ -184,76 +192,41 @@ def find_min_n(
     _log_trial(mode, trials[n0], coverage_target, log_lines)
 
     if _trial_ok(trials[n0], coverage_target):
-        high_ok = n0
-        step = 1
-        low_fail = 0
-        while True:
-            cand = max(1, high_ok - step)
-            if cand in trials:
-                trial = trials[cand]
-            else:
-                trial = _solve_single(
-                    mode=mode,
-                    required=required,
-                    n_agents=cand,
-                    time_limit_sec=time_limit_sec,
-                    num_workers=num_workers,
-                )
-                trials[cand] = trial
-                _log_trial(mode, trial, coverage_target, log_lines)
-            if _trial_ok(trial, coverage_target):
-                high_ok = cand
-                if cand == 1:
-                    low_fail = 0
-                    break
-                step *= 2
-            else:
-                low_fail = cand
-                break
-        best = _binary_search_min_ok(
-            mode=mode,
-            required=required,
-            low_fail=low_fail,
-            high_ok=high_ok,
-            coverage_target=coverage_target,
-            time_limit_sec=time_limit_sec,
-            num_workers=num_workers,
-            log_lines=log_lines,
-            trials=trials,
-        )
-    else:
-        low_fail = n0
-        high_ok = None
-        step = 1
-        while step <= max_expand:
-            cand = n0 + step
+        best = trials[n0]
+        n = n0 - 1
+        while n >= 1:
             trial = _solve_single(
                 mode=mode,
                 required=required,
-                n_agents=cand,
+                n_agents=n,
                 time_limit_sec=time_limit_sec,
                 num_workers=num_workers,
             )
-            trials[cand] = trial
+            trials[n] = trial
             _log_trial(mode, trial, coverage_target, log_lines)
             if _trial_ok(trial, coverage_target):
-                high_ok = cand
+                best = trial
+                n -= 1
+            else:
                 break
-            low_fail = cand
-            step *= 2
-        if high_ok is None:
+    else:
+        best = None
+        for step in range(1, max_expand + 1):
+            n = n0 + step
+            trial = _solve_single(
+                mode=mode,
+                required=required,
+                n_agents=n,
+                time_limit_sec=time_limit_sec,
+                num_workers=num_workers,
+            )
+            trials[n] = trial
+            _log_trial(mode, trial, coverage_target, log_lines)
+            if _trial_ok(trial, coverage_target):
+                best = trial
+                break
+        if best is None:
             raise RuntimeError(f"{mode}: coverage target {coverage_target:.2f} not reached up to N={n0 + max_expand}.")
-        best = _binary_search_min_ok(
-            mode=mode,
-            required=required,
-            low_fail=low_fail,
-            high_ok=high_ok,
-            coverage_target=coverage_target,
-            time_limit_sec=time_limit_sec,
-            num_workers=num_workers,
-            log_lines=log_lines,
-            trials=trials,
-        )
 
     out_dir = _export_final(
         run_dir=run_dir,
