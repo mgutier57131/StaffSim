@@ -1,4 +1,11 @@
-"""Run 2 CP-SAT model."""
+"""Run 2 CP-SAT model.
+
+Rules (updated):
+- 1 or 2 day offs => worked days in {5, 6}
+- Start is constant by employee across the whole week
+- Daily shift length is one of {8, 12, 16, 20} intervals (4, 6, 8, 10 hours)
+- Weekly total length = 84 intervals
+"""
 
 from __future__ import annotations
 
@@ -9,6 +16,7 @@ import pandas as pd
 from ortools.sat.python import cp_model
 
 SCALE = 100
+LENGTH_OPTIONS = [8, 12, 16, 20]
 
 
 @dataclass(frozen=True)
@@ -34,20 +42,6 @@ def _status_name(status: int) -> str:
     return "UNKNOWN"
 
 
-def _build_options(intervals: int = 48) -> tuple[list[tuple[int, int]], dict[int, list[int]]]:
-    options: list[tuple[int, int]] = []
-    for length in range(8, 21):  # 4..10h in 30-min intervals
-        for start in range(0, intervals - length + 1):
-            options.append((start, length))
-
-    covers: dict[int, list[int]] = {j: [] for j in range(intervals)}
-    for o_idx, (start, length) in enumerate(options):
-        end = start + length - 1
-        for j in range(start, end + 1):
-            covers[j].append(o_idx)
-    return options, covers
-
-
 def _fmt_slot(start_interval: int, length: int) -> str:
     start_minutes = start_interval * 30
     end_minutes = (start_interval + length) * 30
@@ -56,49 +50,59 @@ def _fmt_slot(start_interval: int, length: int) -> str:
     return f"{int(sh):02d}:{int(sm):02d}-{int(eh):02d}:{int(em):02d}"
 
 
-def _build_feasible_fallback(
+def _feasible_fallback(
     *,
     n_agents: int,
-    days: int,
-    intervals: int,
     required_matrix: np.ndarray,
-) -> tuple[str, np.ndarray, pd.DataFrame, float, float]:
-    # Deterministic demand-guided heuristic:
-    # each employee has one fixed OFF day (k % 7), works 6 days with length=14.
-    # start is chosen greedily by max uncovered demand on that day.
+) -> tuple[str, np.ndarray, pd.DataFrame, float]:
+    """Deterministic fallback that respects Run2 rules."""
+    days, intervals = required_matrix.shape
     planned = np.zeros((days, intervals), dtype=float)
-    assignments: dict[tuple[int, int], tuple[int, int] | None] = {}
-    day_residual = required_matrix.astype(float).copy()
-    shift_length = 14
-    for d in range(days):
-        workers_today = [k for k in range(n_agents) if (k % days) != d]
-        for k in workers_today:
-            best_start = 0
-            best_score = float("-inf")
-            for start in range(0, intervals - shift_length + 1):
-                score = float(np.sum(day_residual[d, start : start + shift_length]))
-                if score > best_score:
-                    best_score = score
-                    best_start = start
-            assignments[(k, d)] = (best_start, shift_length)
-            planned[d, best_start : best_start + shift_length] += 1.0
-            day_residual[d, best_start : best_start + shift_length] -= 1.0
-        for k in range(n_agents):
-            if (k, d) not in assignments:
-                assignments[(k, d)] = None
+    residual = required_matrix.astype(float).copy()
 
-    schedule_rows: list[dict[str, str | int]] = []
+    # 5 worked days with fixed lengths summing 84 intervals.
+    length_plan = [20, 16, 16, 16, 16]
     day_cols = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    schedule_rows: list[dict[str, str | int]] = []
+
     for k in range(n_agents):
+        # Pick one constant start per employee using weekly residual demand for 20-interval window.
+        best_start = 0
+        best_score = float("-inf")
+        for start in range(0, intervals - 20 + 1):
+            score = float(np.sum(residual[:, start : start + 20]))
+            if score > best_score:
+                best_score = score
+                best_start = start
+
+        # Choose two off-days with lowest residual around this start.
+        day_scores = []
+        for d in range(days):
+            day_scores.append((float(np.sum(residual[d, best_start : best_start + 20])), d))
+        day_scores.sort(key=lambda x: x[0])
+        off_days = {day_scores[0][1], day_scores[1][1]}
+        work_days = [d for d in range(days) if d not in off_days]
+
         row: dict[str, str | int] = {"employee": k + 1}
-        for d_idx, day_name in enumerate(day_cols):
-            slot = assignments[(k, d_idx)]
-            row[day_name] = "OFF" if slot is None else _fmt_slot(slot[0], slot[1])
+        for d in range(days):
+            if d in off_days:
+                row[day_cols[d]] = "OFF"
+                continue
+            # Assign one of the pre-defined lengths in ranked-demand order of work days.
+            # Highest demand gets length 20, others 16.
+            row[day_cols[d]] = "OFF"
+        ranked_work = sorted(work_days, key=lambda d: float(np.sum(residual[d, best_start : best_start + 20])), reverse=True)
+        for idx, d in enumerate(ranked_work):
+            length = length_plan[idx]
+            planned[d, best_start : best_start + length] += 1.0
+            residual[d, best_start : best_start + length] -= 1.0
+            row[day_cols[d]] = _fmt_slot(best_start, length)
         schedule_rows.append(row)
 
     under = np.maximum(0.0, required_matrix - planned)
     objective = float(under.sum())
-    return "FEASIBLE_FALLBACK", planned, pd.DataFrame(schedule_rows), 0.0, objective
+    schedule_detail = pd.DataFrame(schedule_rows)
+    return "FEASIBLE_FALLBACK", planned, schedule_detail, objective
 
 
 def solve_run2(
@@ -114,42 +118,56 @@ def solve_run2(
     model = cp_model.CpModel()
     r_int = np.rint(required_matrix * SCALE).astype(int)
     max_r = int(r_int.max())
+    starts = range(48)
 
-    options, covers = _build_options(intervals=intervals)
-    option_count = len(options)
-    option_index = {opt: idx for idx, opt in enumerate(options)}
-
+    # Variables:
     y: dict[tuple[int, int], cp_model.IntVar] = {}
-    s_opt: dict[tuple[int, int, int], cp_model.IntVar] = {}
+    s_start: dict[tuple[int, int], cp_model.IntVar] = {}
+    l_sel: dict[tuple[int, int, int], cp_model.IntVar] = {}
+    z: dict[tuple[int, int, int, int], cp_model.IntVar] = {}
 
     for k in range(n_agents):
         for d in range(days):
             y[(k, d)] = model.NewBoolVar(f"y_k{k}_d{d}")
-            for o in range(option_count):
-                s_opt[(k, d, o)] = model.NewBoolVar(f"s_k{k}_d{d}_o{o}")
-
-            model.Add(sum(s_opt[(k, d, o)] for o in range(option_count)) == y[(k, d)])
-
+        for r in starts:
+            s_start[(k, r)] = model.NewBoolVar(f"s_k{k}_r{r}")
+        model.Add(sum(s_start[(k, r)] for r in starts) == 1)
         model.Add(sum(y[(k, d)] for d in range(days)) >= 5)
         model.Add(sum(y[(k, d)] for d in range(days)) <= 6)
-        model.Add(
-            sum(options[o][1] * s_opt[(k, d, o)] for d in range(days) for o in range(option_count))
-            == 84
-        )
 
-        # Feasible hint: work Mon-Sat with 14 intervals/day, Sunday OFF.
-        # This satisfies 84 weekly intervals exactly.
+        weekly_len_terms = []
         for d in range(days):
-            is_work_day = d < 6
-            model.AddHint(y[(k, d)], 1 if is_work_day else 0)
-            hinted_start = (2 * d + 3 * k) % (48 - 14 + 1)
-            hinted_opt = option_index[(hinted_start, 14)] if is_work_day else None
-            for o in range(option_count):
-                model.AddHint(s_opt[(k, d, o)], 1 if (hinted_opt is not None and o == hinted_opt) else 0)
+            # Exactly one chosen length if worked, none if off.
+            for length in LENGTH_OPTIONS:
+                l_sel[(k, d, length)] = model.NewBoolVar(f"l_k{k}_d{d}_len{length}")
+            model.Add(sum(l_sel[(k, d, length)] for length in LENGTH_OPTIONS) == y[(k, d)])
+            weekly_len_terms.extend(length * l_sel[(k, d, length)] for length in LENGTH_OPTIONS)
 
-    # Symmetry breaking: keep employees sorted by worked days.
-    for k in range(n_agents - 1):
-        model.Add(sum(y[(k, d)] for d in range(days)) >= sum(y[(k + 1, d)] for d in range(days)))
+            # Link constant start and chosen length (AND) with feasibility start+length<=48.
+            for r in starts:
+                for length in LENGTH_OPTIONS:
+                    z[(k, d, r, length)] = model.NewBoolVar(f"z_k{k}_d{d}_r{r}_l{length}")
+                    model.Add(z[(k, d, r, length)] <= s_start[(k, r)])
+                    model.Add(z[(k, d, r, length)] <= l_sel[(k, d, length)])
+                    model.Add(z[(k, d, r, length)] >= s_start[(k, r)] + l_sel[(k, d, length)] - 1)
+                    if r + length > 48:
+                        model.Add(z[(k, d, r, length)] == 0)
+
+            # One active (r,length) pair if worked day, otherwise zero.
+            model.Add(sum(z[(k, d, r, length)] for r in starts for length in LENGTH_OPTIONS) == y[(k, d)])
+
+        # Weekly total exactly 84 intervals.
+        model.Add(sum(weekly_len_terms) == 84)
+
+    # Precompute which (r,length) covers each interval j.
+    covers: dict[int, list[tuple[int, int]]] = {j: [] for j in range(intervals)}
+    for r in starts:
+        for length in LENGTH_OPTIONS:
+            end = r + length - 1
+            if end >= intervals:
+                continue
+            for j in range(r, end + 1):
+                covers[j].append((r, length))
 
     under: dict[tuple[int, int], cp_model.IntVar] = {}
     objective_terms: list[cp_model.IntVar] = []
@@ -157,14 +175,14 @@ def solve_run2(
     for d in range(days):
         for j in range(intervals):
             under[(d, j)] = model.NewIntVar(0, upper_under, f"under_d{d}_j{j}")
-            c_expr = sum(s_opt[(k, d, o)] for k in range(n_agents) for o in covers[j])
+            c_expr = sum(z[(k, d, r, length)] for k in range(n_agents) for (r, length) in covers[j])
             model.Add(under[(d, j)] >= int(r_int[d, j]) - SCALE * c_expr)
             objective_terms.append(under[(d, j)])
 
     model.Minimize(sum(objective_terms))
 
     solver = cp_model.CpSolver()
-    solver.parameters.max_time_in_seconds = min(time_limit_sec, 5.0)
+    solver.parameters.max_time_in_seconds = min(time_limit_sec, 20.0)
     if num_workers is not None and num_workers > 0:
         solver.parameters.num_search_workers = int(num_workers)
     solver.parameters.symmetry_level = 2
@@ -174,56 +192,49 @@ def solve_run2(
     status_name = _status_name(status)
 
     planned = np.zeros((days, intervals), dtype=float)
-    schedule_rows: list[dict[str, str | int]] = []
     objective_value = float("inf")
+    schedule_rows: list[dict[str, str | int]] = []
+    day_cols = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         objective_value = float(solver.ObjectiveValue()) / SCALE
         for d in range(days):
             for j in range(intervals):
-                planned[d, j] = float(sum(solver.Value(s_opt[(k, d, o)]) for k in range(n_agents) for o in covers[j]))
-        day_cols = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+                planned[d, j] = float(sum(solver.Value(z[(k, d, r, length)]) for k in range(n_agents) for (r, length) in covers[j]))
+
         for k in range(n_agents):
+            chosen_start = next(r for r in starts if solver.Value(s_start[(k, r)]) == 1)
             row: dict[str, str | int] = {"employee": k + 1}
-            for d_idx, day_name in enumerate(day_cols):
-                chosen = [o for o in range(option_count) if solver.Value(s_opt[(k, d_idx, o)]) == 1]
-                if not chosen:
-                    row[day_name] = "OFF"
+            for d in range(days):
+                if solver.Value(y[(k, d)]) == 0:
+                    row[day_cols[d]] = "OFF"
                 else:
-                    start, length = options[chosen[0]]
-                    row[day_name] = _fmt_slot(start, length)
+                    chosen_len = next(length for length in LENGTH_OPTIONS if solver.Value(l_sel[(k, d, length)]) == 1)
+                    row[day_cols[d]] = _fmt_slot(chosen_start, chosen_len)
             schedule_rows.append(row)
 
-    schedule_detail = pd.DataFrame(schedule_rows) if schedule_rows else pd.DataFrame(columns=["employee", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
-
-    if status_name == "UNKNOWN":
-        fb_status, fb_planned, fb_detail, fb_runtime, fb_objective = _build_feasible_fallback(
+        schedule_detail = pd.DataFrame(schedule_rows)
+        return ModelSolveResult(
+            mode="run2",
             n_agents=n_agents,
-            days=days,
-            intervals=intervals,
-            required_matrix=required_matrix,
+            solver_status=status_name,
+            objective_value=objective_value,
+            runtime_sec=float(solver.WallTime()),
+            planned_matrix=planned,
+            schedule_detail=schedule_detail,
         )
-        if fb_status == "FEASIBLE_FALLBACK":
-            status_name = fb_status
-            planned = fb_planned
-            schedule_detail = fb_detail
-            objective_value = fb_objective
-            runtime_sec = float(solver.WallTime()) + fb_runtime
-            return ModelSolveResult(
-                mode="run2",
-                n_agents=n_agents,
-                solver_status=status_name,
-                objective_value=objective_value,
-                runtime_sec=runtime_sec,
-                planned_matrix=planned,
-                schedule_detail=schedule_detail,
-            )
 
+    # Robust fallback that still respects the same run2 constraints.
+    fb_status, fb_planned, fb_detail, fb_objective = _feasible_fallback(
+        n_agents=n_agents,
+        required_matrix=required_matrix,
+    )
     return ModelSolveResult(
         mode="run2",
         n_agents=n_agents,
-        solver_status=status_name,
-        objective_value=objective_value,
+        solver_status=fb_status,
+        objective_value=fb_objective,
         runtime_sec=float(solver.WallTime()),
-        planned_matrix=planned,
-        schedule_detail=schedule_detail,
+        planned_matrix=fb_planned,
+        schedule_detail=fb_detail,
     )
+
