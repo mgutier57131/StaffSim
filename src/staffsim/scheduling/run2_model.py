@@ -61,64 +61,44 @@ def _build_feasible_fallback(
     n_agents: int,
     days: int,
     intervals: int,
-    options: list[tuple[int, int]],
-    time_limit_sec: float,
-    num_workers: int | None,
-) -> tuple[str, np.ndarray, pd.DataFrame, float]:
-    model = cp_model.CpModel()
-    option_count = len(options)
-    covers: dict[int, list[int]] = {j: [] for j in range(intervals)}
-    for o_idx, (start, length) in enumerate(options):
-        for j in range(start, start + length):
-            covers[j].append(o_idx)
-    option_index = {opt: idx for idx, opt in enumerate(options)}
-
-    y: dict[tuple[int, int], cp_model.IntVar] = {}
-    s_opt: dict[tuple[int, int, int], cp_model.IntVar] = {}
-    for k in range(n_agents):
-        for d in range(days):
-            y[(k, d)] = model.NewBoolVar(f"fy_k{k}_d{d}")
-            for o in range(option_count):
-                s_opt[(k, d, o)] = model.NewBoolVar(f"fs_k{k}_d{d}_o{o}")
-            model.Add(sum(s_opt[(k, d, o)] for o in range(option_count)) == y[(k, d)])
-
-        model.Add(sum(y[(k, d)] for d in range(days)) >= 5)
-        model.Add(sum(y[(k, d)] for d in range(days)) <= 6)
-        model.Add(sum(options[o][1] * s_opt[(k, d, o)] for d in range(days) for o in range(option_count)) == 84)
-        for d in range(days):
-            is_work_day = d < 6
-            model.AddHint(y[(k, d)], 1 if is_work_day else 0)
-            hinted_start = (2 * d + 3 * k) % (48 - 14 + 1)
-            hinted_opt = option_index[(hinted_start, 14)] if is_work_day else None
-            for o in range(option_count):
-                model.AddHint(s_opt[(k, d, o)], 1 if (hinted_opt is not None and o == hinted_opt) else 0)
-
-    solver = cp_model.CpSolver()
-    solver.parameters.max_time_in_seconds = max(5.0, min(20.0, time_limit_sec))
-    if num_workers is not None and num_workers > 0:
-        solver.parameters.num_search_workers = int(num_workers)
-    status = solver.Solve(model)
-
+    required_matrix: np.ndarray,
+) -> tuple[str, np.ndarray, pd.DataFrame, float, float]:
+    # Deterministic demand-guided heuristic:
+    # each employee has one fixed OFF day (k % 7), works 6 days with length=14.
+    # start is chosen greedily by max uncovered demand on that day.
     planned = np.zeros((days, intervals), dtype=float)
-    schedule_rows: list[dict[str, str | int]] = []
-    if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-        day_cols = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-        for d in range(days):
-            for j in range(intervals):
-                planned[d, j] = float(sum(solver.Value(s_opt[(k, d, o)]) for k in range(n_agents) for o in covers[j]))
+    assignments: dict[tuple[int, int], tuple[int, int] | None] = {}
+    day_residual = required_matrix.astype(float).copy()
+    shift_length = 14
+    for d in range(days):
+        workers_today = [k for k in range(n_agents) if (k % days) != d]
+        for k in workers_today:
+            best_start = 0
+            best_score = float("-inf")
+            for start in range(0, intervals - shift_length + 1):
+                score = float(np.sum(day_residual[d, start : start + shift_length]))
+                if score > best_score:
+                    best_score = score
+                    best_start = start
+            assignments[(k, d)] = (best_start, shift_length)
+            planned[d, best_start : best_start + shift_length] += 1.0
+            day_residual[d, best_start : best_start + shift_length] -= 1.0
         for k in range(n_agents):
-            row: dict[str, str | int] = {"employee": k + 1}
-            for d_idx, day_name in enumerate(day_cols):
-                chosen = [o for o in range(option_count) if solver.Value(s_opt[(k, d_idx, o)]) == 1]
-                if not chosen:
-                    row[day_name] = "OFF"
-                else:
-                    start, length = options[chosen[0]]
-                    row[day_name] = _fmt_slot(start, length)
-            schedule_rows.append(row)
-        return "FEASIBLE_FALLBACK", planned, pd.DataFrame(schedule_rows), float(solver.WallTime())
+            if (k, d) not in assignments:
+                assignments[(k, d)] = None
 
-    return "UNKNOWN", planned, pd.DataFrame(columns=["employee", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]), float(solver.WallTime())
+    schedule_rows: list[dict[str, str | int]] = []
+    day_cols = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    for k in range(n_agents):
+        row: dict[str, str | int] = {"employee": k + 1}
+        for d_idx, day_name in enumerate(day_cols):
+            slot = assignments[(k, d_idx)]
+            row[day_name] = "OFF" if slot is None else _fmt_slot(slot[0], slot[1])
+        schedule_rows.append(row)
+
+    under = np.maximum(0.0, required_matrix - planned)
+    objective = float(under.sum())
+    return "FEASIBLE_FALLBACK", planned, pd.DataFrame(schedule_rows), 0.0, objective
 
 
 def solve_run2(
@@ -184,7 +164,7 @@ def solve_run2(
     model.Minimize(sum(objective_terms))
 
     solver = cp_model.CpSolver()
-    solver.parameters.max_time_in_seconds = time_limit_sec
+    solver.parameters.max_time_in_seconds = min(time_limit_sec, 5.0)
     if num_workers is not None and num_workers > 0:
         solver.parameters.num_search_workers = int(num_workers)
     solver.parameters.symmetry_level = 2
@@ -216,19 +196,17 @@ def solve_run2(
     schedule_detail = pd.DataFrame(schedule_rows) if schedule_rows else pd.DataFrame(columns=["employee", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
 
     if status_name == "UNKNOWN":
-        fb_status, fb_planned, fb_detail, fb_runtime = _build_feasible_fallback(
+        fb_status, fb_planned, fb_detail, fb_runtime, fb_objective = _build_feasible_fallback(
             n_agents=n_agents,
             days=days,
             intervals=intervals,
-            options=options,
-            time_limit_sec=time_limit_sec,
-            num_workers=num_workers,
+            required_matrix=required_matrix,
         )
         if fb_status == "FEASIBLE_FALLBACK":
             status_name = fb_status
             planned = fb_planned
             schedule_detail = fb_detail
-            objective_value = float("nan")
+            objective_value = fb_objective
             runtime_sec = float(solver.WallTime()) + fb_runtime
             return ModelSolveResult(
                 mode="run2",
