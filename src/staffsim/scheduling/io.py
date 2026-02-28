@@ -66,6 +66,21 @@ def read_n0_from_summary(run_dir: Path) -> int:
     return int(float(raw))
 
 
+def read_headcount_refs(run_dir: Path) -> dict[str, float | int]:
+    """Read comparable HC references from summary.csv."""
+    metrics = read_summary_metrics(run_dir)
+    out: dict[str, float | int] = {}
+    if "HC_gross" in metrics:
+        out["HC_gross"] = round(float(metrics["HC_gross"]), 3)
+    if "HC_gross_ceil" in metrics:
+        out["HC_gross_ceil"] = int(float(metrics["HC_gross_ceil"]))
+    if "HC_teorico" in metrics:
+        out["HC_teorico"] = round(float(metrics["HC_teorico"]), 3)
+    if "HC_teorico_ceil" in metrics:
+        out["HC_teorico_ceil"] = int(float(metrics["HC_teorico_ceil"]))
+    return out
+
+
 def ensure_run_inputs(run_dir: Path) -> None:
     for name in ("fte_matrix.csv", "summary.csv"):
         if not (run_dir / name).exists():
@@ -129,6 +144,7 @@ def write_ilp_summary(
     sum_under: float,
     sum_over: float,
     runtime_sec: float,
+    extra_metrics: dict[str, float | int | str] | None = None,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     rows = [
@@ -142,6 +158,9 @@ def write_ilp_summary(
         ("sum_over", round(sum_over, 2)),
         ("runtime_sec", round(runtime_sec, 3)),
     ]
+    if extra_metrics:
+        for k, v in extra_metrics.items():
+            rows.append((k, v))
     with path.open("w", encoding="utf-8", newline="") as fh:
         writer = csv.writer(fh)
         writer.writerow(["metric", "value"])

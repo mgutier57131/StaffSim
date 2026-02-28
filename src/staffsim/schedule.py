@@ -9,7 +9,13 @@ from __future__ import annotations
 
 import argparse
 
-from staffsim.scheduling.io import ensure_run_inputs, read_n0_from_summary, read_required_matrix, resolve_run_dir
+from staffsim.scheduling.io import (
+    ensure_run_inputs,
+    read_headcount_refs,
+    read_n0_from_summary,
+    read_required_matrix,
+    resolve_run_dir,
+)
 from staffsim.scheduling.search import find_min_n
 
 
@@ -30,7 +36,10 @@ def main() -> None:
     ensure_run_inputs(run_dir)
     required = read_required_matrix(run_dir)
     n0 = read_n0_from_summary(run_dir)
+    hc_refs = read_headcount_refs(run_dir)
     print(f"N0 (HC_gross_ceil): {n0}")
+    if "HC_teorico_ceil" in hc_refs:
+        print(f"HC from demand (HC_teorico_ceil): {hc_refs['HC_teorico_ceil']}")
 
     modes = ["run1", "run2"] if args.mode == "both" else [args.mode]
     failures: list[str] = []
@@ -44,6 +53,7 @@ def main() -> None:
                 coverage_target=float(args.coverage_target),
                 time_limit_sec=float(args.time_limit),
                 num_workers=int(args.workers),
+                hc_refs=hc_refs,
             )
             print(f"{mode}: N final minimum: {result.n_final}")
             print(f"{mode}: Coverage final: {result.coverage_final:.4f}")

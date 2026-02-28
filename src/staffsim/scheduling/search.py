@@ -141,6 +141,7 @@ def _export_final(
     required: np.ndarray,
     best: TrialResult,
     search_log_lines: list[str],
+    hc_refs: dict[str, float | int] | None = None,
 ) -> Path:
     out_dir = make_final_output_dir(run_dir, mode)
     under, over, delta = compute_under_over_delta(required, best.planned)
@@ -161,6 +162,7 @@ def _export_final(
         sum_under=best.sum_under,
         sum_over=best.sum_over,
         runtime_sec=best.runtime_sec,
+        extra_metrics=hc_refs,
     )
     plot_required_vs_planned(required, best.planned, out_dir / "schedule_curve.png")
     write_search_log(out_dir / "search_log.txt", search_log_lines)
@@ -177,6 +179,7 @@ def find_min_n(
     time_limit_sec: float = 30.0,
     num_workers: int | None = None,
     max_expand: int = 256,
+    hc_refs: dict[str, float | int] | None = None,
 ) -> SearchResult:
     log_lines: list[str] = [f"{mode}: starting at N0={n0}"]
     print(log_lines[0])
@@ -234,6 +237,7 @@ def find_min_n(
         required=required,
         best=best,
         search_log_lines=log_lines,
+        hc_refs=hc_refs,
     )
     print(f"{mode}: final N={best.n_agents} coverage={best.coverage:.4f}")
     return SearchResult(
