@@ -97,7 +97,7 @@ Si `--run` no se pasa, usa el ultimo run en `./results/`.
 Se puede ajustar solver:
 
 ```powershell
-python -m staffsim.schedule --mode both --time-limit 30 --workers 8
+python -m staffsim.schedule --mode both --time-limit 30 --time-limit-run2 90 --workers 8
 ```
 
 Outputs finales por run (solo N minimo exitoso):

@@ -18,9 +18,12 @@ def _list_runs(base: Path) -> list[Path]:
 
 def _read_metric_csv(path: Path) -> dict[str, str]:
     df = pd.read_csv(path)
-    if "metric" not in df.columns or "value" not in df.columns:
+    if "metric" in df.columns and "value" in df.columns:
+        return {str(k): str(v) for k, v in zip(df["metric"], df["value"], strict=False)}
+    if df.empty:
         return {}
-    return {str(k): str(v) for k, v in zip(df["metric"], df["value"], strict=False)}
+    row = df.iloc[0].to_dict()
+    return {str(k): str(v) for k, v in row.items()}
 
 
 def _read_matrix(path: Path) -> pd.DataFrame:

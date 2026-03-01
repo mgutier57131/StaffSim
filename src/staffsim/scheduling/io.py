@@ -41,6 +41,18 @@ def _read_matrix_csv(path: Path) -> np.ndarray:
     return matrix
 
 
+def _read_metric_file(path: Path) -> dict[str, str]:
+    df = pd.read_csv(path)
+    # Legacy format: metric,value rows
+    if "metric" in df.columns and "value" in df.columns:
+        return {str(k): str(v) for k, v in zip(df["metric"], df["value"], strict=False)}
+    # Wide format: 1-row table with metric columns
+    if df.empty:
+        return {}
+    row = df.iloc[0].to_dict()
+    return {str(k): str(v) for k, v in row.items()}
+
+
 def read_required_matrix(run_dir: Path) -> np.ndarray:
     path = run_dir / "fte_matrix.csv"
     if not path.exists():
@@ -52,10 +64,10 @@ def read_summary_metrics(run_dir: Path) -> dict[str, str]:
     path = run_dir / "summary.csv"
     if not path.exists():
         raise FileNotFoundError(f"Missing required input: {path}")
-    df = pd.read_csv(path)
-    if "metric" not in df.columns or "value" not in df.columns:
-        raise ValueError(f"summary.csv must contain metric,value columns: {path}")
-    return {str(k): str(v) for k, v in zip(df["metric"], df["value"], strict=False)}
+    metrics = _read_metric_file(path)
+    if not metrics:
+        raise ValueError(f"summary.csv is empty or invalid: {path}")
+    return metrics
 
 
 def read_n0_from_summary(run_dir: Path) -> int:
@@ -165,3 +177,38 @@ def write_ilp_summary(
         writer = csv.writer(fh)
         writer.writerow(["metric", "value"])
         writer.writerows(rows)
+
+
+def write_unified_summary_table(run_dir: Path) -> Path:
+    """
+    Build a unified 1-row summary table in run_dir/summary.csv:
+    - demand metrics from summary.csv
+    - run1 metrics from schedule/run1/ilp_summary.csv (prefixed run1_)
+    - run2 metrics from schedule/run2/ilp_summary.csv (prefixed run2_)
+    """
+    summary_path = run_dir / "summary.csv"
+    if not summary_path.exists():
+        raise FileNotFoundError(f"Missing summary.csv in {run_dir}")
+
+    demand = _read_metric_file(summary_path)
+    if not demand:
+        raise ValueError(f"Could not parse demand summary at {summary_path}")
+
+    def _prefixed_ilp(mode: str) -> dict[str, str]:
+        ilp_path = run_dir / "schedule" / mode / "ilp_summary.csv"
+        if not ilp_path.exists():
+            return {}
+        raw = _read_metric_file(ilp_path)
+        return {f"{mode}_{k}": v for k, v in raw.items()}
+
+    run1 = _prefixed_ilp("run1")
+    run2 = _prefixed_ilp("run2")
+
+    merged: dict[str, str] = {}
+    merged.update(demand)
+    merged.update(run1)
+    merged.update(run2)
+
+    df = pd.DataFrame([merged])
+    df.to_csv(summary_path, index=False)
+    return summary_path

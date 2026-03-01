@@ -9,7 +9,9 @@ import pandas as pd
 from ortools.sat.python import cp_model
 
 SCALE = 100
-LENGTH_OPTIONS = [8, 12, 16, 20]
+# 30-min intervals:
+# 6h, 7h, 8h, 9h, 10h -> 12, 14, 16, 18, 20 intervals.
+LENGTH_OPTIONS = [12, 14, 16, 18, 20]
 
 
 @dataclass(frozen=True)
@@ -56,8 +58,8 @@ def solve_run2(
     model = cp_model.CpModel()
     r_int = np.rint(required_matrix * SCALE).astype(int)
     max_r = int(r_int.max())
-    # Start must allow max length=20 without crossing day boundary.
-    starts = range(29)  # 0..28
+    starts = range(intervals)  # 0..47
+    feasible_pairs = [(r, length) for r in starts for length in LENGTH_OPTIONS if r + length <= intervals]
 
     # Variables:
     y: dict[tuple[int, int], cp_model.IntVar] = {}
@@ -82,16 +84,15 @@ def solve_run2(
             model.Add(sum(l_sel[(k, d, length)] for length in LENGTH_OPTIONS) == y[(k, d)])
             weekly_len_terms.extend(length * l_sel[(k, d, length)] for length in LENGTH_OPTIONS)
 
-            # Link constant start and chosen length (AND) with feasibility start+length<=48.
-            for r in starts:
-                for length in LENGTH_OPTIONS:
-                    z[(k, d, r, length)] = model.NewBoolVar(f"z_k{k}_d{d}_r{r}_l{length}")
-                    model.Add(z[(k, d, r, length)] <= s_start[(k, r)])
-                    model.Add(z[(k, d, r, length)] <= l_sel[(k, d, length)])
-                    model.Add(z[(k, d, r, length)] >= s_start[(k, r)] + l_sel[(k, d, length)] - 1)
+            # Link constant start and chosen length (AND), only for feasible start+length<=48.
+            for r, length in feasible_pairs:
+                z[(k, d, r, length)] = model.NewBoolVar(f"z_k{k}_d{d}_r{r}_l{length}")
+                model.Add(z[(k, d, r, length)] <= s_start[(k, r)])
+                model.Add(z[(k, d, r, length)] <= l_sel[(k, d, length)])
+                model.Add(z[(k, d, r, length)] >= s_start[(k, r)] + l_sel[(k, d, length)] - 1)
 
             # One active (r,length) pair if worked day, otherwise zero.
-            model.Add(sum(z[(k, d, r, length)] for r in starts for length in LENGTH_OPTIONS) == y[(k, d)])
+            model.Add(sum(z[(k, d, r, length)] for r, length in feasible_pairs) == y[(k, d)])
 
         # Weekly total exactly 84 intervals.
         model.Add(sum(weekly_len_terms) == 84)
@@ -102,13 +103,10 @@ def solve_run2(
 
     # Precompute which (r,length) covers each interval j.
     covers: dict[int, list[tuple[int, int]]] = {j: [] for j in range(intervals)}
-    for r in starts:
-        for length in LENGTH_OPTIONS:
-            end = r + length - 1
-            if end >= intervals:
-                continue
-            for j in range(r, end + 1):
-                covers[j].append((r, length))
+    for r, length in feasible_pairs:
+        end = r + length - 1
+        for j in range(r, end + 1):
+            covers[j].append((r, length))
 
     under: dict[tuple[int, int], cp_model.IntVar] = {}
     objective_terms: list[cp_model.IntVar] = []

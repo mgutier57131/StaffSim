@@ -398,7 +398,7 @@ def main() -> None:
         "Lambda": sim.lmbda,
         "Ratio Capped": sim.ratio_capped,
         "Calls Generation": "largest remainder",
-        "Day Weights Mon-Sun": [float(x) for x in sim.day_weights.tolist()],
+        "Day Weights Mon-Sun": [round(float(x), 3) for x in sim.day_weights.tolist()],
     }
     params_text = _build_params_text(params)
 
