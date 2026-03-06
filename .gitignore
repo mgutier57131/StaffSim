@@ -22,6 +22,8 @@ Thumbs.db
 
 # Project outputs
 results/
+results_sim/
+results_sim_*/
 
 
 text.txt

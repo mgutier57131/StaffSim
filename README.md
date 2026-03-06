@@ -114,6 +114,65 @@ Outputs finales por run (solo N minimo exitoso):
 - `search_log.txt`
 - `schedule_curve.png`
 
+## Orquestador de Escenarios (`results_sim/`)
+
+Ejecuta demanda + scheduling en grid, con IDs reproducibles, resumible, y salida long-format en Parquet.
+
+```powershell
+python -m staffsim.orchestrate --out results_sim --parallel 4 --cp-sat-workers 1 --base-seed 12345 --run1-time-limit 120 --run2-time-limit 600 --retries-demand 2 --retries-sched 1 --regen-grid false --stage both --scheduler cp_sat
+```
+
+Comportamiento:
+- genera/reusa `results_sim/scenarios.csv`
+- corre demanda una vez por `base_id`
+- corre scheduling por `scenario_id` (`{base_id}_run1` / `{base_id}_run2`) y por `solver` (`cp_sat` / `hexaly`)
+- usa staging por proceso y merge serial para evitar corrupcion de parquet
+- si ya existe `base_id` o `scenario_id`, marca `SKIP` y no repite
+
+Salidas principales en `results_sim/`:
+- `scenarios.csv`
+- `run_config.json`
+- `orchestration_log.csv`
+- `demand_calls.parquet`
+- `demand_expected.parquet`
+- `demand_fte.parquet`
+- `demand_kpi.parquet`
+- `sched_planned.parquet`, `sched_under.parquet`, `sched_over.parquet`, `sched_delta.parquet` (incluyen columna `solver`)
+- `sched_kpi.parquet` (incluye columna `solver`)
+- `sched_detail.parquet` (incluye columna `solver`)
+- `summary.csv` (long: una fila por `base_id + schedule_case + solver`)
+- `images/demand/*.png`, `images/schedule/run1/*.png`, `images/schedule/run2/*.png`
+
+Ejecucion por fases:
+- solo demanda: `--stage demand`
+- solo scheduling: `--stage schedule`
+- ambos: `--stage both` (default)
+
+Backends de scheduling:
+- `--scheduler cp_sat`
+- `--scheduler hexaly`
+- `--scheduler both`
+
+Instalacion de Hexaly (si quieres usar `--scheduler hexaly`):
+
+```powershell
+py -m pip install hexaly -i https://pip.hexaly.com
+setx HX_LICENSE_PATH "C:\hexaly_14_5\license.dat"
+```
+
+Ejemplos utiles:
+
+```powershell
+# 1) Solo demanda
+py -m staffsim.orchestrate --out results_sim --stage demand --regen-grid true
+
+# 2) Scheduling CP-SAT sobre demanda ya generada
+py -m staffsim.orchestrate --out results_sim --stage schedule --scheduler cp_sat --regen-grid false
+
+# 3) Scheduling Hexaly sobre demanda ya generada
+py -m staffsim.orchestrate --out results_sim --stage schedule --scheduler hexaly --regen-grid false
+```
+
 ## Review App
 
 App unificada para comparar KPIs de demanda + Run1/Run2:
