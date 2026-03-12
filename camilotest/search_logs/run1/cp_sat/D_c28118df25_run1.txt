@@ -1,0 +1,4 @@
+run1: starting at N0=22
+run1 try N=22, status=OPTIMAL, coverage=0.9120, sum_under=157.14, objective=157.05 => OK
+run1 try N=21, status=OPTIMAL, coverage=0.8732, sum_under=226.43, objective=226.30 => FAIL
+run1: final N=22 coverage=0.9120
