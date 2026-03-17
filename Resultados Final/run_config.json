@@ -1,0 +1,21 @@
+{
+  "out_dir": "camilotest",
+  "parallel_runs": 14,
+  "cp_sat_workers": 1,
+  "base_seed": 12345,
+  "run1_time_limit": 420.0,
+  "run2_time_limit": 1200.0,
+  "retries_demand": 2,
+  "retries_sched": 0,
+  "regen_grid": false,
+  "coverage_target": 0.9,
+  "max_expand": 6,
+  "stage": "both",
+  "scheduler": "cp_sat",
+  "ortools_version": "9.15.6755",
+  "hexaly_version": "",
+  "scenario_count": 2268,
+  "base_count": 1134,
+  "generated_at": "2026-03-07T22:04:23",
+  "git_commit": "50d2337a10f243367c0fbe77a3cc5f42f1e95765"
+}
