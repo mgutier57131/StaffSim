@@ -174,56 +174,73 @@ def plot_results(metrics_df: pd.DataFrame,
     depths = metrics_df["depth"].values
     best_depth = metrics_df.loc[metrics_df["r2_val"].idxmax(), "depth"]
 
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    fig.suptitle("Seleccion de profundidad — Arbol de Decision (M_obs)",
-                 fontsize=14, fontweight="bold", y=1.01)
+    OPT_COLOR  = "#2E7D32"
+    FONT_BASE  = 11
 
-    # --- Panel 1: R² train vs validacion ---
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    fig.suptitle(
+        "Seleccion de la profundidad optima del arbol de decision",
+        fontsize=14, fontweight="bold", y=1.01,
+    )
+
+    # Etiquetas de subpanel
+    panel_labels = ["(a)", "(b)", "(c)", "(d)"]
+    for ax, lbl in zip(axes.flat, panel_labels):
+        ax.text(-0.08, 1.04, lbl, transform=ax.transAxes,
+                fontsize=13, fontweight="bold", va="top")
+
+    # --- (a) R² train vs validacion ---
     ax = axes[0, 0]
     ax.plot(depths, metrics_df["r2_train"], "o-", color="#2196F3",
-            linewidth=2, label="R² train")
+            linewidth=2, markersize=5, label="R² entrenamiento")
     ax.plot(depths, metrics_df["r2_val"],   "s-", color="#FF5722",
-            linewidth=2, label="R² validacion")
-    ax.axvline(best_depth, color="green", linestyle="--", alpha=0.7,
-               label=f"optimo (depth={best_depth})")
-    ax.set_xlabel("Profundidad")
-    ax.set_ylabel("R²")
-    ax.set_title("R² Train vs Validacion")
-    ax.legend()
-    ax.grid(True, alpha=0.3)
+            linewidth=2, markersize=5, label="R² validacion")
+    ax.axvline(best_depth, color=OPT_COLOR, linestyle="--", linewidth=1.5,
+               label=f"Optimo: depth = {best_depth}")
+    ax.set_xlabel("Profundidad", fontsize=FONT_BASE)
+    ax.set_ylabel("R²", fontsize=FONT_BASE)
+    ax.set_title("Capacidad predictiva", fontsize=FONT_BASE, pad=8)
+    ax.legend(fontsize=9)
+    ax.grid(True, alpha=0.25)
     ax.set_xticks(depths)
+    ax.spines[["top", "right"]].set_visible(False)
 
-    # --- Panel 2: Numero de hojas ---
+    # --- (b) Numero de hojas ---
     ax = axes[0, 1]
-    ax.bar(depths, metrics_df["n_leaves"], color="#9C27B0", alpha=0.7)
-    ax.axvline(best_depth, color="green", linestyle="--", alpha=0.7,
-               label=f"optimo (depth={best_depth})")
-    ax.set_xlabel("Profundidad")
-    ax.set_ylabel("Numero de hojas")
-    ax.set_title("Complejidad del arbol (hojas)")
-    ax.legend()
-    ax.grid(True, alpha=0.3, axis="y")
+    bars = ax.bar(depths, metrics_df["n_leaves"], color="#9C27B0", alpha=0.75, width=0.6)
+    ax.axvline(best_depth, color=OPT_COLOR, linestyle="--", linewidth=1.5,
+               label=f"Optimo: depth = {best_depth}")
+    for bar, val in zip(bars, metrics_df["n_leaves"]):
+        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 4,
+                str(val), ha="center", va="bottom", fontsize=8)
+    ax.set_xlabel("Profundidad", fontsize=FONT_BASE)
+    ax.set_ylabel("Numero de hojas", fontsize=FONT_BASE)
+    ax.set_title("Complejidad del arbol", fontsize=FONT_BASE, pad=8)
+    ax.legend(fontsize=9)
+    ax.grid(True, alpha=0.25, axis="y")
     ax.set_xticks(depths)
+    ax.spines[["top", "right"]].set_visible(False)
 
-    # --- Panel 3: Variables que aportan vs no aportan ---
+    # --- (c) Variables activas ---
     ax = axes[1, 0]
     ax.plot(depths, metrics_df["vars_aportan"],    "o-", color="#4CAF50",
-            linewidth=2, label="Aportan (imp > 0)")
+            linewidth=2, markersize=5, label="Con importancia > 0")
     ax.plot(depths, metrics_df["vars_no_aportan"], "s-", color="#F44336",
-            linewidth=2, label="No aportan (imp = 0)")
-    ax.axvline(best_depth, color="green", linestyle="--", alpha=0.7,
-               label=f"optimo (depth={best_depth})")
-    ax.set_xlabel("Profundidad")
-    ax.set_ylabel("Cantidad de variables")
-    ax.set_title("Variables activas por profundidad")
+            linewidth=2, markersize=5, label="Sin importancia")
+    ax.axvline(best_depth, color=OPT_COLOR, linestyle="--", linewidth=1.5,
+               label=f"Optimo: depth = {best_depth}")
+    ax.set_xlabel("Profundidad", fontsize=FONT_BASE)
+    ax.set_ylabel("Variables", fontsize=FONT_BASE)
+    ax.set_title("Variables con aporte al modelo", fontsize=FONT_BASE, pad=8)
     ax.set_yticks(range(0, len(FEATURE_COLS) + 1))
-    ax.legend()
-    ax.grid(True, alpha=0.3)
+    ax.legend(fontsize=9)
+    ax.grid(True, alpha=0.25)
     ax.set_xticks(depths)
+    ax.spines[["top", "right"]].set_visible(False)
 
-    # --- Panel 4: Heatmap importancia por profundidad ---
+    # --- (d) Heatmap importancia ---
     ax = axes[1, 1]
-    labels  = [FEAT_LABELS[f] for f in FEATURE_COLS]
+    labels = [FEAT_LABELS[f] for f in FEATURE_COLS]
     imp_matrix = importance_df.pivot(
         index="label", columns="depth", values="importancia"
     ).reindex(labels)
@@ -231,25 +248,24 @@ def plot_results(metrics_df: pd.DataFrame,
     im = ax.imshow(imp_matrix.values, aspect="auto", cmap="YlOrRd",
                    vmin=0, vmax=imp_matrix.values.max())
     ax.set_xticks(range(len(depths)))
-    ax.set_xticklabels(depths)
+    ax.set_xticklabels(depths, fontsize=9)
     ax.set_yticks(range(len(labels)))
-    ax.set_yticklabels(labels, fontsize=9)
-    ax.set_xlabel("Profundidad")
-    ax.set_title("Importancia por variable y profundidad")
+    ax.set_yticklabels(labels, fontsize=10)
+    ax.set_xlabel("Profundidad", fontsize=FONT_BASE)
+    ax.set_title("Importancia de cada variable", fontsize=FONT_BASE, pad=8)
     plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
 
-    # Anotar valores en el heatmap
     for i in range(len(labels)):
         for j in range(len(depths)):
             val = imp_matrix.values[i, j]
             if val > 0:
-                txt = f"{val:.3f}" if val >= 0.001 else f"{val:.4f}"
+                txt = f"{val:.2f}" if val >= 0.01 else f"{val:.3f}"
                 ax.text(j, i, txt, ha="center", va="center",
-                        fontsize=6.5,
-                        color="white" if val > 0.4 else "black")
+                        fontsize=7,
+                        color="white" if val > 0.35 else "black")
             else:
                 ax.text(j, i, "—", ha="center", va="center",
-                        fontsize=6.5, color="#BBBBBB")
+                        fontsize=7, color="#CCCCCC")
 
     fig.tight_layout()
     out_png = OUT_DIR / "depth_selection.png"
