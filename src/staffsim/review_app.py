@@ -7,6 +7,8 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
+from staffsim.analysis._theme import inject_css, nav_footer, page_config
+
 DAY_COLS = [f"t{i:02d}" for i in range(48)]
 
 
@@ -78,8 +80,15 @@ def _run_sched_summary(run_dir: Path, mode: str) -> dict[str, str]:
 
 
 def main() -> None:
-    st.set_page_config(page_title="StaffSim Review", layout="wide")
-    st.title("StaffSim Review")
+    page_config("Revisión de Simulaciones", layout="wide")
+    inject_css()
+    st.title("👥 Revisión de Resultados")
+    st.markdown(
+        "<p style='color:#546E7A; font-size:1.05rem; margin-top:-12px'>"
+        "Explora los KPIs de demanda y los resultados del scheduling por escenario.</p>",
+        unsafe_allow_html=True,
+    )
+    st.divider()
 
     runs = _list_runs(Path("results"))
     if not runs:
@@ -168,7 +177,9 @@ def main() -> None:
         if p.exists():
             st.dataframe(pd.read_csv(p), use_container_width=True, hide_index=True)
         else:
-            st.info("Run2 schedule_detail.csv not found.")
+            st.info("No se encontró schedule_detail.csv para run2.")
+
+    nav_footer()
 
 
 if __name__ == "__main__":

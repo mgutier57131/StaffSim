@@ -9,6 +9,8 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+from staffsim.analysis._theme import inject_css, nav_footer, page_config
+
 from staffsim.curves.simulator_core import (
     MIN_WEEKDAY_SHARE,
     T_INTERVAL_DEFAULT,
@@ -100,8 +102,15 @@ def _local_peak_value(pattern: np.ndarray, center: float, window: int = 2) -> fl
 
 
 def main() -> None:
-    st.set_page_config(page_title="StaffSim GUI", layout="wide")
-    st.title("StaffSim - Weekly Curve Simulator")
+    page_config("Simulador de Curva Semanal", layout="wide")
+    inject_css()
+    st.title("👥 Simulador de Curva de Demanda")
+    st.markdown(
+        "<p style='color:#546E7A; font-size:1.05rem; margin-top:-12px'>"
+        "Calibra en tiempo real el patrón de llamadas semanal e intradiario.</p>",
+        unsafe_allow_html=True,
+    )
+    st.divider()
     _init_state()
 
     with st.sidebar:
@@ -402,7 +411,9 @@ def main() -> None:
     }
     params_text = _build_params_text(params)
 
-    if st.button("Export Run", type="primary"):
+    nav_footer()
+
+    if st.button("Exportar resultados", type="primary"):
         output_dir = export_results(
             calls_matrix=sim.calls_matrix,
             calls_expected_matrix=sim.expected_matrix,
