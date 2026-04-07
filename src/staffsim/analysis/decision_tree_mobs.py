@@ -366,6 +366,18 @@ def main() -> None:
     print(f"\n[5] Tabla exportada: {CSV_OUT}")
 
     export_png(tree)
+
+    # Resumen de complejidad
+    comp = lookup.groupby("complejidad")["n_escenarios"].sum()
+    total = comp.sum()
+    print("\n=== Resumen de complejidad ===")
+    for nivel in ["baja", "media", "alta"]:
+        n = comp.get(nivel, 0)
+        pct = n / total * 100
+        m_med = lookup[lookup["complejidad"] == nivel]["M_obs_median"].mean()
+        print(f"  {nivel:<6}: {n:>4} escenarios ({pct:5.1f}%)  M_mediana_prom={m_med:.4f}")
+    print(f"\n  Umbral baja/media : M < {lookup['M_obs_median'][lookup['complejidad']=='baja'].max():.4f}")
+    print(f"  Umbral media/alta : M > {lookup['M_obs_median'][lookup['complejidad']=='alta'].min():.4f}")
     print("\nListo.")
 
 

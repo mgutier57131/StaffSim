@@ -1,6 +1,4 @@
 # Manual de uso — StaffSim
-**Simulador de Headcount para Centros de Contacto**
-Trabajo de grado — Universidad EAN
 
 ---
 
@@ -24,9 +22,9 @@ Trabajo de grado — Universidad EAN
 
 StaffSim es un simulador que responde la pregunta central del dimensionamiento de centros de contacto:
 
-> *¿Cuántos agentes reales necesita una operación, dado un volumen de demanda y una estructura de turnos?*
+> *¿Cuántos agentes reales necesita una operación, dado una curva de demanda y una estructura de turnos?*
 
-La teoría (Erlang) entrega un headcount teórico, pero en la práctica siempre se necesitan más agentes porque la curva de demanda intradiaria no es plana y los turnos tienen restricciones estructurales. StaffSim cuantifica esa diferencia a través de un **factor multiplicador M**, estimado a partir de 2 268 escenarios simulados y un árbol de decisión entrenado sobre ellos.
+La teoría de workload entrega un headcount teórico, pero en la práctica siempre se necesitan más agentes porque la curva de demanda intradiaria no es plana y los turnos tienen restricciones estructurales. StaffSim cuantifica esa diferencia a través de un **factor multiplicador M**, estimado a partir de 2 268 escenarios simulados y un árbol de decisión entrenado sobre ellos.
 
 **Fórmula central:**
 

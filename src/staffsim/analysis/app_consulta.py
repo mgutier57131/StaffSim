@@ -325,7 +325,7 @@ def main():
         st.subheader("🧮 ¿Cuántos agentes necesito en mi operación?")
         st.markdown(
             "Ingresa el **HC teórico** de tu operación "
-            "(el que sale de Erlang o de la fórmula de headcount bruto) "
+            "(el que devuelve el modelo de demanda como headcount bruto requerido) "
             "para calcular cuántos agentes reales vas a necesitar:"
         )
 
