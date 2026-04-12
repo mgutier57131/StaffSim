@@ -281,9 +281,11 @@ def export_png(tree: DecisionTreeRegressor) -> None:
     )
     ax.set_title("Decision Tree — M_obs = HC_real / HC_req  (depth=6)",
                  fontsize=18, pad=16)
-    fig.savefig(PNG_OUT, dpi=120, bbox_inches="tight")
+    fig.savefig(PNG_OUT, dpi=300, bbox_inches="tight")
+    fig.savefig(PNG_OUT.with_suffix(".pdf"), bbox_inches="tight")
     plt.close(fig)
     print(f"\n[6a] Arbol completo exportado: {PNG_OUT}")
+    print(f"       Exportado: {PNG_OUT.with_suffix('.pdf')}")
 
     # --- Sub-arbol izquierdo (rama p_weekdays <= umbral) ---
     _export_subtree(tree, max_depth=3, title="Sub-arbol izquierdo (primeras 3 capas)",
@@ -309,9 +311,11 @@ def export_png(tree: DecisionTreeRegressor) -> None:
                  fontsize=14, pad=12)
     fig.tight_layout()
     out_top = OUT_DIR / "decision_tree_top3.png"
-    fig.savefig(out_top, dpi=150, bbox_inches="tight")
+    fig.savefig(out_top, dpi=300, bbox_inches="tight")
+    fig.savefig(out_top.with_suffix(".pdf"), bbox_inches="tight")
     plt.close(fig)
     print(f"[6b] Arbol top-3 niveles exportado: {out_top}")
+    print(f"       Exportado: {out_top.with_suffix('.pdf')}")
 
 
 def _export_subtree(tree, max_depth, title, out):
@@ -329,9 +333,11 @@ def _export_subtree(tree, max_depth, title, out):
     )
     ax.set_title(title, fontsize=13, pad=12)
     fig.tight_layout()
-    fig.savefig(out, dpi=150, bbox_inches="tight")
+    fig.savefig(out, dpi=300, bbox_inches="tight")
+    fig.savefig(Path(out).with_suffix(".pdf"), bbox_inches="tight")
     plt.close(fig)
     print(f"       Exportado: {out}")
+    print(f"       Exportado: {Path(out).with_suffix('.pdf')}")
 
 
 # ---------------------------------------------------------------------------

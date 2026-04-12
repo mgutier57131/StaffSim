@@ -113,6 +113,9 @@ ax.text(0.97, 0.97, conclusion,
         bbox=dict(boxstyle="round,pad=0.5", facecolor="#FFF9C4", edgecolor="#F9A825", alpha=0.95))
 
 fig.tight_layout()
-fig.savefig(PNG_OUT, dpi=150, bbox_inches="tight")
+fig.savefig(PNG_OUT, dpi=300, bbox_inches="tight")
+PDF_OUT = PNG_OUT.with_suffix(".pdf")
+fig.savefig(PDF_OUT, bbox_inches="tight")
 plt.close(fig)
 print(f"Grafica exportada: {PNG_OUT}")
+print(f"Grafica exportada: {PDF_OUT}")
