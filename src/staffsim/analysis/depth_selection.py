@@ -93,7 +93,7 @@ def load_and_prepare() -> tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
 
     df.rename(columns={"N_final": "HC_gross_sch"}, inplace=True)
     df["HC_real"] = df["HC_gross_sch"] / (1 - SHK)
-    df["M_obs"]   = df["HC_real"] / df["HC_gross_ceil"]
+    df["M_obs"]   = df["HC_real"] / df["HC_teorico"]
 
     X = df[FEATURE_COLS].copy()
     num_cols = [c for c in FEATURE_COLS if c not in CAT_COLS]

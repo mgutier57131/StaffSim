@@ -24,7 +24,7 @@ df = pd.read_csv(CSV_IN)
 df = df[df["solver_status"].isin(["FEASIBLE","OPTIMAL"])].copy()
 df.rename(columns={"N_final": "HC_gross_sch"}, inplace=True)
 df["HC_real"] = df["HC_gross_sch"] / 0.80
-df["M_obs"]   = df["HC_real"] / df["HC_gross_ceil"]
+df["M_obs"]   = df["HC_real"] / df["HC_teorico"]
 
 m      = df["M_obs"].values
 p33    = np.percentile(m, 33)

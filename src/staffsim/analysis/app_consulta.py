@@ -64,7 +64,7 @@ def cargar_modelo():
     df = df[df["solver_status"].isin(["FEASIBLE", "OPTIMAL"])].copy()
     df.rename(columns={"N_final": "HC_gross_sch"}, inplace=True)
     df["HC_real"] = df["HC_gross_sch"] / (1 - SHK)
-    df["M_obs"]   = df["HC_real"] / df["HC_gross_ceil"]
+    df["M_obs"]   = df["HC_real"] / df["HC_teorico"]
 
     X = df[FEATURE_COLS].copy()
     num_cols = [c for c in FEATURE_COLS if c not in CAT_COLS]
@@ -324,13 +324,14 @@ def main():
         st.divider()
         st.subheader("🧮 ¿Cuántos agentes necesito en mi operación?")
         st.markdown(
-            "Ingresa el **HC teórico** de tu operación "
-            "(el que devuelve el modelo de demanda como headcount bruto requerido) "
-            "para calcular cuántos agentes reales vas a necesitar:"
+            "Ingresa el **HC teórico** de tu operación: "
+            "el número de agentes que arroja tu cálculo de Workload, "
+            "redondeado al entero más cercano. "
+            "Este valor ya incluye shrinkage."
         )
 
         hc_teo = st.number_input(
-            "HC teórico (agentes sin shrinkage)",
+            "HC teórico — resultado de Workload (con shrinkage incluido)",
             min_value=1.0,
             value=22.0,
             step=1.0,

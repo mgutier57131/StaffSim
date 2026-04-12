@@ -71,6 +71,7 @@ Simulador/
 │   │   ├── decision_tree_mobs.py       # Script: entrena el árbol de decisión
 │   │   ├── depth_selection.py          # Script: selección de profundidad óptima
 │   │   ├── plot_mobs_dist.py           # Script: distribución de M_obs
+│   │   ├── plot_tree_partition.py      # Script: partición del espacio de decisión
 │   │   └── _theme.py                   # Estilo visual compartido entre apps
 │   │
 │   ├── curves/                         # Generación de curvas de demanda
@@ -101,6 +102,7 @@ Simulador/
 │   ├── decision_tree_lookup.csv        # Tabla de consulta: 59 hojas con M recomendado
 │   ├── decision_tree_mobs.png          # Árbol completo (depth=6)
 │   ├── decision_tree_top3.png          # Árbol primeros 3 niveles (para tesis)
+│   ├── decision_tree_partition.png     # Partición del espacio de decisión
 │   ├── depth_selection.png             # Gráfica de selección de profundidad
 │   ├── depth_selection_metrics.csv     # R², hojas, vars activas por profundidad
 │   ├── depth_selection_importance.csv  # Importancia por variable y profundidad
@@ -130,10 +132,9 @@ Simulador/
 | `H_prod` | `H_talk / OCC` | Horas productivas (incluye tiempo entre llamadas) |
 | `H_paid` | `H_prod / (1 − SHK)` | Horas pagadas, descontando ausentismo |
 | `HC_teórico` | `H_paid / Hg` | Agentes teóricos necesarios |
-| `HC_req` | `ceil(HC_gross)` | Headcount bruto requerido (entero) |
 | `HC_gross_sch` | `N_final` del scheduler | Agentes que resuelven el scheduling (sin SHK) |
-| `HC_real` | `HC_gross_sch / (1 − SHK)` | Agentes reales con ausentismo aplicado |
-| `M_obs` | `HC_real / HC_req` | Factor multiplicador observado en cada simulación |
+| `HC_real` | `HC_gross_sch / (1 − SHK)` | Agentes reales a contratar (con SHK aplicado) |
+| `M_obs` | `HC_real / HC_teórico` | Factor multiplicador observado — ambos términos con SHK |
 
 ### Parámetros del modelo
 | Parámetro | Símbolo | Valor en simulaciones |
@@ -150,9 +151,9 @@ Basados en los percentiles globales de M_obs sobre los 2 268 escenarios:
 
 | Nivel | Rango | Interpretación |
 |---|---|---|
-| 🟢 Baja | M < 1.1932 | La demanda es pareja, el scheduling se ajusta bien |
-| 🟡 Media | 1.1932 ≤ M ≤ 1.2500 | Picos que obligan a contratar por encima del teórico |
-| 🔴 Alta | M > 1.2500 | La forma de la demanda fuerza un HC significativamente mayor |
+| 🟢 Baja | M < 0.9878 | El scheduling cubre la demanda con menos agentes de los que predice el workload |
+| 🟡 Media | 0.9878 ≤ M ≤ 1.0349 | El scheduling requiere un HC muy cercano al teórico |
+| 🔴 Alta | M > 1.0349 | La forma de la demanda fuerza un HC mayor al teórico |
 
 ### Estrategias de scheduling
 | Estrategia | Duración de turno | Inicio de turno |
@@ -360,9 +361,9 @@ streamlit run src/staffsim/analysis/app_consulta.py
 2. **Ingresa el HC teórico** de tu operación (puede cambiarse libremente sin recalcular)
 3. La app muestra: `HC_real = HC_teórico × M`
 
-> **Ejemplo:** operación con W2, 95% en laborales, dos picos (06:00 y 19:00),
-> ratio 4:1, turnos flexibles → M = 1.3068.
-> Si HC teórico = 22 agentes → HC real estimado = 22 × 1.3068 = **29 agentes**.
+> **Ejemplo:** operación con W2, 85% en laborales, un pico (12:30),
+> ratio 6:1, turnos fijos → M = 1.035.
+> Si HC teórico = 50 agentes → HC real estimado = 50 × 1.035 = **52 agentes**.
 
 ### Limitación importante
 Las opciones del formulario corresponden exactamente a los valores simulados.
@@ -403,9 +404,19 @@ python -m staffsim.analysis.plot_mobs_dist
 ```
 **Qué hace:**
 - Calcula M_obs para todos los escenarios
-- Genera gráfica de 3 paneles: frecuencias reales, comparación con normal, CDF empírica vs teórica
+- Genera gráfica de 2 paneles: frecuencia por valor de M con niveles de complejidad, y comparación con curva normal
 - Incluye test de Shapiro-Wilk para verificar normalidad
 - Exporta `mobs_distribucion.png`
+
+### `plot_tree_partition.py` — Partición del espacio de decisión
+```bash
+python src/staffsim/analysis/plot_tree_partition.py
+```
+**Qué hace:**
+- Visualiza cómo el árbol divide el espacio (hora del pico × variación pico/valle) según complejidad predicha
+- Genera dos subplots: run1 (turnos fijos 7h) y run2 (turnos variables 6–10h)
+- Superpone los escenarios reales del dataset como puntos
+- Exporta `decision_tree_partition.png`
 
 ---
 

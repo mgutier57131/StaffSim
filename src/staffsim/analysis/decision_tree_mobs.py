@@ -98,12 +98,12 @@ def load_and_compute(path: Path) -> pd.DataFrame:
     # N_final es lo que devuelve el scheduler sin SHK → HC_gross_sch
     df.rename(columns={"N_final": "HC_gross_sch"}, inplace=True)
 
-    # HC_real: agentes reales (con ausentismo aplicado)
+    # HC_real: agentes reales a contratar (con SHK aplicado)
     df["HC_real"] = df["HC_gross_sch"] / (1 - SHK)
 
-    # HC_req: headcount bruto teorico requerido (ya estaba en HC_gross_ceil)
-    # M_obs: factor multiplicador real observado
-    df["M_obs"] = df["HC_real"] / df["HC_gross_ceil"]
+    # M_obs: agentes reales (scheduler+SHK) sobre headcount teorico (workload+SHK)
+    # Ambos en la misma base: agentes CON SHK
+    df["M_obs"] = df["HC_real"] / df["HC_teorico"]
 
     print(f"[1] Escenarios cargados      : {n_total}")
     print(f"    Excluidos (solver failed) : {n_excl}")
@@ -221,37 +221,22 @@ def build_lookup(df: pd.DataFrame,
     p66_global = np.percentile(mobs_all, 66)
     print(f"\n[4] Percentiles globales M_obs: p33={p33_global:.4f}, p66={p66_global:.4f}")
 
-    # Terciles de over promedio por hoja → percentil de recomendacion
-    leaf_over_mean = df_work.groupby("leaf_id")["sum_over"].mean()
-    ov_p33 = np.percentile(leaf_over_mean.values, 33)
-    ov_p66 = np.percentile(leaf_over_mean.values, 66)
-    print(f"    Terciles sum_over por hoja : p33={ov_p33:.2f}, p66={ov_p66:.2f}")
-
     cond_map = _leaf_conditions(tree, encoders)
 
     rows = []
     for leaf_id, grp in df_work.groupby("leaf_id"):
         m_vals   = grp["M_obs"].values
         hcr_vals = grp["HC_real"].values
-        ov_mean  = grp["sum_over"].mean()
         n        = len(grp)
 
-        # Percentil segun nivel de over (sobredotacion)
-        if ov_mean >= ov_p66:
-            rec_pct = 60    # grupo con mucho over → somos conservadores
-        elif ov_mean >= ov_p33:
-            rec_pct = 75
-        else:
-            rec_pct = 90    # grupo ajustado → necesitamos margen
-
-        m_rec    = np.percentile(m_vals, rec_pct)
-        hcr_rec  = np.percentile(hcr_vals, rec_pct)
+        # M recomendado = mediana de M_obs en la hoja
+        m_rec  = float(np.median(m_vals))
+        hcr_rec = float(np.median(hcr_vals))
 
         # Complejidad segun mediana vs percentiles globales
-        med = np.median(m_vals)
-        if med < p33_global:
+        if m_rec < p33_global:
             complejidad = "baja"
-        elif med <= p66_global:
+        elif m_rec <= p66_global:
             complejidad = "media"
         else:
             complejidad = "alta"
@@ -264,10 +249,8 @@ def build_lookup(df: pd.DataFrame,
             "M_obs_median"     : round(float(np.median(m_vals)), 4),
             "M_obs_max"        : round(float(m_vals.max()), 4),
             "HC_real_median"   : round(float(np.median(hcr_vals)), 2),
-            "sum_over_medio"   : round(float(ov_mean), 2),
-            "percentil_usado"  : rec_pct,
-            "M_recomendado"    : round(float(m_rec), 4),
-            "HC_real_rec"      : round(float(hcr_rec), 2),
+            "M_recomendado"    : round(m_rec, 4),
+            "HC_real_rec"      : round(hcr_rec, 2),
             "complejidad"      : complejidad,
         })
 
@@ -275,7 +258,7 @@ def build_lookup(df: pd.DataFrame,
 
     print(f"\n[3+4] Hojas procesadas: {len(lookup)}")
     print(lookup[["leaf_id", "n_escenarios", "M_obs_median",
-                  "percentil_usado", "M_recomendado", "complejidad"]].to_string(index=False))
+                  "M_recomendado", "complejidad"]].to_string(index=False))
     return lookup
 
 
@@ -374,10 +357,8 @@ def main() -> None:
     for nivel in ["baja", "media", "alta"]:
         n = comp.get(nivel, 0)
         pct = n / total * 100
-        m_med = lookup[lookup["complejidad"] == nivel]["M_obs_median"].mean()
-        print(f"  {nivel:<6}: {n:>4} escenarios ({pct:5.1f}%)  M_mediana_prom={m_med:.4f}")
-    print(f"\n  Umbral baja/media : M < {lookup['M_obs_median'][lookup['complejidad']=='baja'].max():.4f}")
-    print(f"  Umbral media/alta : M > {lookup['M_obs_median'][lookup['complejidad']=='alta'].min():.4f}")
+        m_med = lookup[lookup["complejidad"] == nivel]["M_recomendado"].mean()
+        print(f"  {nivel:<6}: {n:>4} escenarios ({pct:5.1f}%)  M_recomendado_prom={m_med:.4f}")
     print("\nListo.")
 
 
