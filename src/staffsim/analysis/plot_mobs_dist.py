@@ -39,11 +39,11 @@ pcts = cnts / len(m) * 100
 
 from matplotlib.patches import Patch
 
-fig, axes = plt.subplots(1, 2, figsize=(14, 5.5))
+fig, axes = plt.subplots(2, 1, figsize=(11, 12))
 fig.suptitle(
     "Factor de ajuste M observado en 2 268 escenarios simulados\n"
     r"$M = HC_{real}\ /\ HC_{requerido}$",
-    fontsize=13, fontweight="bold", y=1.02,
+    fontsize=13, fontweight="bold", y=1.01,
 )
 
 # -----------------------------------------------------------
