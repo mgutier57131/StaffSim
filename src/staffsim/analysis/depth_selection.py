@@ -168,29 +168,9 @@ def run_depth_analysis(X: pd.DataFrame,
 # ---------------------------------------------------------------------------
 # Grafica
 # ---------------------------------------------------------------------------
-def plot_results(metrics_df: pd.DataFrame,
-                 importance_df: pd.DataFrame) -> None:
-
-    depths = metrics_df["depth"].values
-    best_depth = metrics_df.loc[metrics_df["r2_val"].idxmax(), "depth"]
-
-    OPT_COLOR  = "#2E7D32"
-    FONT_BASE  = 11
-
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    fig.suptitle(
-        "Seleccion de la profundidad optima del arbol de decision",
-        fontsize=14, fontweight="bold", y=1.01,
-    )
-
-    # Etiquetas de subpanel
-    panel_labels = ["(a)", "(b)", "(c)", "(d)"]
-    for ax, lbl in zip(axes.flat, panel_labels):
-        ax.text(-0.08, 1.04, lbl, transform=ax.transAxes,
-                fontsize=13, fontweight="bold", va="top")
-
-    # --- (a) R² train vs validacion ---
-    ax = axes[0, 0]
+def _draw_panel_a(ax, depths, metrics_df, best_depth, OPT_COLOR, FONT_BASE):
+    ax.text(-0.08, 1.04, "(a)", transform=ax.transAxes,
+            fontsize=13, fontweight="bold", va="top")
     ax.plot(depths, metrics_df["r2_train"], "o-", color="#2196F3",
             linewidth=2, markersize=5, label="R² entrenamiento")
     ax.plot(depths, metrics_df["r2_val"],   "s-", color="#FF5722",
@@ -205,8 +185,10 @@ def plot_results(metrics_df: pd.DataFrame,
     ax.set_xticks(depths)
     ax.spines[["top", "right"]].set_visible(False)
 
-    # --- (b) Numero de hojas ---
-    ax = axes[0, 1]
+
+def _draw_panel_b(ax, depths, metrics_df, best_depth, OPT_COLOR, FONT_BASE):
+    ax.text(-0.08, 1.04, "(b)", transform=ax.transAxes,
+            fontsize=13, fontweight="bold", va="top")
     bars = ax.bar(depths, metrics_df["n_leaves"], color="#9C27B0", alpha=0.75, width=0.6)
     ax.axvline(best_depth, color=OPT_COLOR, linestyle="--", linewidth=1.5,
                label=f"Optimo: depth = {best_depth}")
@@ -221,8 +203,10 @@ def plot_results(metrics_df: pd.DataFrame,
     ax.set_xticks(depths)
     ax.spines[["top", "right"]].set_visible(False)
 
-    # --- (c) Variables activas ---
-    ax = axes[1, 0]
+
+def _draw_panel_c(ax, depths, metrics_df, best_depth, OPT_COLOR, FONT_BASE):
+    ax.text(-0.08, 1.04, "(c)", transform=ax.transAxes,
+            fontsize=13, fontweight="bold", va="top")
     ax.plot(depths, metrics_df["vars_aportan"],    "o-", color="#4CAF50",
             linewidth=2, markersize=5, label="Con importancia > 0")
     ax.plot(depths, metrics_df["vars_no_aportan"], "s-", color="#F44336",
@@ -238,8 +222,10 @@ def plot_results(metrics_df: pd.DataFrame,
     ax.set_xticks(depths)
     ax.spines[["top", "right"]].set_visible(False)
 
-    # --- (d) Heatmap importancia ---
-    ax = axes[1, 1]
+
+def _draw_panel_d(fig, ax, depths, importance_df, FONT_BASE):
+    ax.text(-0.08, 1.04, "(d)", transform=ax.transAxes,
+            fontsize=13, fontweight="bold", va="top")
     labels = [FEAT_LABELS[f] for f in FEATURE_COLS]
     imp_matrix = importance_df.pivot(
         index="label", columns="depth", values="importancia"
@@ -253,7 +239,7 @@ def plot_results(metrics_df: pd.DataFrame,
     ax.set_yticklabels(labels, fontsize=10)
     ax.set_xlabel("Profundidad", fontsize=FONT_BASE)
     ax.set_title("Importancia de cada variable", fontsize=FONT_BASE, pad=8)
-    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
 
     for i in range(len(labels)):
         for j in range(len(depths)):
@@ -267,11 +253,48 @@ def plot_results(metrics_df: pd.DataFrame,
                 ax.text(j, i, "—", ha="center", va="center",
                         fontsize=7, color="#CCCCCC")
 
-    fig.tight_layout()
-    out_png = OUT_DIR / "depth_selection.png"
-    fig.savefig(out_png, dpi=150, bbox_inches="tight")
-    plt.close(fig)
-    print(f"\nGrafica exportada: {out_png}")
+
+def plot_results(metrics_df: pd.DataFrame,
+                 importance_df: pd.DataFrame) -> None:
+
+    depths     = metrics_df["depth"].values
+    best_depth = metrics_df.loc[metrics_df["r2_val"].idxmax(), "depth"]
+    OPT_COLOR  = "#2E7D32"
+    FONT_BASE  = 11
+
+    # -----------------------------------------------------------------------
+    # Figura 1 — paneles (a) y (b) con encabezado
+    # -----------------------------------------------------------------------
+    fig1, axes1 = plt.subplots(1, 2, figsize=(14, 5))
+    fig1.suptitle(
+        "Seleccion de la profundidad optima del arbol de decision",
+        fontsize=14, fontweight="bold", y=1.02,
+    )
+    _draw_panel_a(axes1[0], depths, metrics_df, best_depth, OPT_COLOR, FONT_BASE)
+    _draw_panel_b(axes1[1], depths, metrics_df, best_depth, OPT_COLOR, FONT_BASE)
+    fig1.tight_layout()
+
+    out1 = OUT_DIR / "depth_selection_ab.png"
+    fig1.savefig(out1, dpi=300, bbox_inches="tight")
+    fig1.savefig(out1.with_suffix(".pdf"), bbox_inches="tight")
+    plt.close(fig1)
+    print(f"\nGrafica exportada: {out1}")
+    print(f"Grafica exportada: {out1.with_suffix('.pdf')}")
+
+    # -----------------------------------------------------------------------
+    # Figura 2 — paneles (c) y (d) sin encabezado
+    # -----------------------------------------------------------------------
+    fig2, axes2 = plt.subplots(1, 2, figsize=(14, 5))
+    _draw_panel_c(axes2[0], depths, metrics_df, best_depth, OPT_COLOR, FONT_BASE)
+    _draw_panel_d(fig2, axes2[1], depths, importance_df, FONT_BASE)
+    fig2.tight_layout()
+
+    out2 = OUT_DIR / "depth_selection_cd.png"
+    fig2.savefig(out2, dpi=300, bbox_inches="tight")
+    fig2.savefig(out2.with_suffix(".pdf"), bbox_inches="tight")
+    plt.close(fig2)
+    print(f"Grafica exportada: {out2}")
+    print(f"Grafica exportada: {out2.with_suffix('.pdf')}")
 
 
 # ---------------------------------------------------------------------------
