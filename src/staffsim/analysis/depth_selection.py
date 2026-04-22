@@ -262,39 +262,31 @@ def plot_results(metrics_df: pd.DataFrame,
     OPT_COLOR  = "#2E7D32"
     FONT_BASE  = 11
 
-    # -----------------------------------------------------------------------
-    # Figura 1 — paneles (a) y (b) con encabezado
-    # -----------------------------------------------------------------------
-    fig1, axes1 = plt.subplots(1, 2, figsize=(14, 5))
-    fig1.suptitle(
+    # Una sola figura con dos subfiguras apiladas verticalmente.
+    # La subfigura superior lleva encabezado; la inferior no.
+    fig = plt.figure(figsize=(14, 10))
+    subfigs = fig.subfigures(2, 1, hspace=0.12)
+
+    # --- Subfigura superior (a) + (b) con título ---
+    subfigs[0].suptitle(
         "Seleccion de la profundidad optima del arbol de decision",
-        fontsize=14, fontweight="bold", y=1.02,
+        fontsize=14, fontweight="bold",
     )
-    _draw_panel_a(axes1[0], depths, metrics_df, best_depth, OPT_COLOR, FONT_BASE)
-    _draw_panel_b(axes1[1], depths, metrics_df, best_depth, OPT_COLOR, FONT_BASE)
-    fig1.tight_layout()
+    axes_top = subfigs[0].subplots(1, 2)
+    _draw_panel_a(axes_top[0], depths, metrics_df, best_depth, OPT_COLOR, FONT_BASE)
+    _draw_panel_b(axes_top[1], depths, metrics_df, best_depth, OPT_COLOR, FONT_BASE)
 
-    out1 = OUT_DIR / "depth_selection_ab.png"
-    fig1.savefig(out1, dpi=300, bbox_inches="tight")
-    fig1.savefig(out1.with_suffix(".pdf"), bbox_inches="tight")
-    plt.close(fig1)
-    print(f"\nGrafica exportada: {out1}")
-    print(f"Grafica exportada: {out1.with_suffix('.pdf')}")
+    # --- Subfigura inferior (c) + (d) sin título ---
+    axes_bot = subfigs[1].subplots(1, 2)
+    _draw_panel_c(axes_bot[0], depths, metrics_df, best_depth, OPT_COLOR, FONT_BASE)
+    _draw_panel_d(subfigs[1], axes_bot[1], depths, importance_df, FONT_BASE)
 
-    # -----------------------------------------------------------------------
-    # Figura 2 — paneles (c) y (d) sin encabezado
-    # -----------------------------------------------------------------------
-    fig2, axes2 = plt.subplots(1, 2, figsize=(14, 5))
-    _draw_panel_c(axes2[0], depths, metrics_df, best_depth, OPT_COLOR, FONT_BASE)
-    _draw_panel_d(fig2, axes2[1], depths, importance_df, FONT_BASE)
-    fig2.tight_layout()
-
-    out2 = OUT_DIR / "depth_selection_cd.png"
-    fig2.savefig(out2, dpi=300, bbox_inches="tight")
-    fig2.savefig(out2.with_suffix(".pdf"), bbox_inches="tight")
-    plt.close(fig2)
-    print(f"Grafica exportada: {out2}")
-    print(f"Grafica exportada: {out2.with_suffix('.pdf')}")
+    out_png = OUT_DIR / "depth_selection.png"
+    fig.savefig(out_png, dpi=300, bbox_inches="tight")
+    fig.savefig(out_png.with_suffix(".pdf"), bbox_inches="tight")
+    plt.close(fig)
+    print(f"\nGrafica exportada: {out_png}")
+    print(f"Grafica exportada: {out_png.with_suffix('.pdf')}")
 
 
 # ---------------------------------------------------------------------------
