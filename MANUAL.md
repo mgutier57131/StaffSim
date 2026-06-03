@@ -352,10 +352,10 @@ streamlit run src/staffsim/analysis/app_consulta.py
 | 8 | ¿Cuál pico es más alto? (solo K=2) | Iguales / Pico 1 mayor / Pico 2 mayor |
 | 9 | ¿Qué tan marcada es la variación pico/valle? | Ratio 2:1 / 4:1 / 6:1 |
 | 10 | ¿Los turnos tienen duración fija o variable? | Fija / Variable (6–10 h) |
-| 11 | ¿Los horarios de inicio son fijos o flexibles? | Fijos / Flexibles |
+| 11 | ¿El número de días trabajados por semana es siempre el mismo? | Sí, siempre 6 días / No, puede ser 5 o 6 días |
 
 > Las preguntas 10 y 11 determinan la estrategia de scheduling:
-> duración variable **o** inicio flexible → **run2** / ambos fijos → **run1**
+> duración variable **o** días variables → **run2** / ambos fijos → **run1**
 
 ### Cómo interpretar el resultado
 

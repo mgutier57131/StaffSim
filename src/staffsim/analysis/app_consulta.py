@@ -251,22 +251,22 @@ def main():
         label_visibility="collapsed",
     )
 
-    inicio_turno = st.radio(
-        "¿Los horarios de inicio de turno son fijos o flexibles?",
-        options=["fijo", "flexible"],
+    dias_semana = st.radio(
+        "¿El número de días trabajados por semana es siempre el mismo?",
+        options=["fijo", "variable"],
         format_func=lambda x: (
-            "Fijos — cada agente siempre entra a la misma hora"
+            "Sí, siempre 6 días"
             if x == "fijo" else
-            "Flexibles — el sistema puede asignar cualquier hora de inicio"
+            "No, puede ser 5 o 6 días"
         ),
         label_visibility="collapsed",
         horizontal=True,
     )
 
     # Inferir schedule_case
-    # run1: turno fijo de 7h, start flexible dentro de rango limitado
-    # run2: duraciones variables (6-10h), start en cualquier intervalo
-    if duracion_turno == "variable" or inicio_turno == "flexible":
+    # run1: turno fijo de 7h, siempre 6 días (7h × 6 = 42h semanales)
+    # run2: duraciones variables (6-10h), días pueden variar entre 5 y 6
+    if duracion_turno == "variable" or dias_semana == "variable":
         schedule_case = "run2"
         st.caption("🔧 Estrategia de scheduling inferida: **run2** (turnos flexibles con duraciones variables)")
     else:
