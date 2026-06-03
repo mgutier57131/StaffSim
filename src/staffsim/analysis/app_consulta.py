@@ -326,9 +326,9 @@ def main():
             st.markdown(f"""
             | Nivel | Rango de M | Interpretación |
             |---|---|---|
-            | 🟢 Baja | M < {p33:.4f} | La demanda es pareja y el scheduling logra ajustarse bien al teórico |
-            | 🟡 Media | {p33:.4f} – {p66:.4f} | Hay picos que obligan a contratar más de lo teórico |
-            | 🔴 Alta | M > {p66:.4f} | La forma de la demanda fuerza un headcount significativamente mayor |
+            | 🟢 Baja | M < {p33:.4f} | La demanda es pareja; el scheduling cubre con igual o menos HC que el teórico. Bajo riesgo de understaffing. |
+            | 🟡 Media | {p33:.4f} – {p66:.4f} | El HC factible queda muy próximo al teórico; el ajuste sobre Workload es marginal. |
+            | 🔴 Alta | M > {p66:.4f} | La forma de la demanda fuerza más HC que el teórico. Riesgo elevado de understaffing si se usa Workload sin ajuste. |
 
             **Tu resultado: M = {M:.4f}** → complejidad **{res['nivel']}**
             """)
