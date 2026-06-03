@@ -156,12 +156,12 @@ Basados en los percentiles globales de M_obs sobre los 2 268 escenarios:
 | 🔴 Alta | M > 1.0349 | La forma de la demanda fuerza un HC mayor al teórico |
 
 ### Estrategias de scheduling
-| Estrategia | Duración de turno | Inicio de turno |
-|---|---|---|
-| **run1** | Fija (7 horas = 14 intervalos) | Determinado por el optimizador (CP-SAT) |
-| **run2** | Variable (6, 7, 8, 9 o 10 horas) | Determinado por el optimizador (CP-SAT) |
+| Estrategia | Duración de turno | Días/semana | Rango de inicio |
+|---|---|---|---|
+| **run1** | Fija (7 h = 14 intervalos) | Siempre 6 | Intervalos 0–34 (00:00–17:00) |
+| **run2** | Variable (6, 7, 8, 9 o 10 h) | 5 o 6 | Cualquier intervalo (0–47) |
 
-> En ambos runs el inicio de turno es una variable de decisión que el solver elige libremente. La única diferencia entre run1 y run2 es la duración del turno asignada.
+> En ambos runs el inicio de turno es una **variable de decisión** de CP-SAT, constante durante toda la semana (un agente siempre entra a la misma hora cada día que trabaja). La diferencia está en la duración del turno, los días trabajados y el rango de horas de inicio disponibles.
 
 ---
 
@@ -270,19 +270,38 @@ python -m staffsim.orchestrate --out "Resultados Final/" --parallel 4
 
 El orquestador genera automáticamente todas las combinaciones de:
 
+**Distribución semanal**
+
 | Variable | Valores |
 |---|---|
-| `week_pattern` | W1, W2 |
-| `p_weekdays` | 0.85, 0.95 |
-| `K` | 1, 2 |
-| `pos1` (K=1) | 14, 25, 36 |
-| `pos1` (K=2) | 10, 12, 22 |
-| `pos2` (K=2) | 28, 38, 40 |
-| `width1` (K=1) | 16, 20, 24 |
-| `width1` (K=2) | 13, 15, 17, 25 |
-| `width2` (K=2) | 13, 15, 16, 17, 20, 25 |
-| `peak_amplitude_rule` (K=2) | equal, different_1_gt_2, different_1_lt_2 |
+| `week_pattern` | W1 (uniforme), W2 (concentrada en laborales) |
+| `p_weekdays` (solo W2) | 0.85, 0.95 |
+| `weekday_split` (solo W2) | uniform, increasing-to-friday, decreasing-to-friday |
+
+**Forma intradiaria — K=1 (un pico)**
+
+| Variable | Valores |
+|---|---|
+| `pos1` | 14, 25, 36 (07:00, 12:30, 18:00) |
+| `width1` | 16, 20, 24 intervalos |
 | `ratio_target` | 2, 4, 6 |
+
+**Forma intradiaria — K=2 (dos picos)**
+
+Los pares (pos1, pos2) son fijos — no se combinan libremente:
+
+| Par de posiciones | width1 / width2 disponibles |
+|---|---|
+| pos1=10 (05:00), pos2=28 (14:00) | 16, 20, 25 |
+| pos1=12 (06:00), pos2=38 (19:00) | 13, 15, 17 |
+| pos1=22 (11:00), pos2=40 (20:00) | 13, 15, 17 |
+
+Para cada par de posiciones se generan 5 combinaciones de anchos (iguales o extremos) × 3 reglas de amplitud (`equal`, `different_1_gt_2`, `different_1_lt_2`) × 3 ratios.
+
+**Estrategia de scheduling**
+
+| Variable | Valores |
+|---|---|
 | `schedule_case` | run1, run2 |
 
 **Total: 2 268 escenarios** (378 con K=1, 1 890 con K=2).
