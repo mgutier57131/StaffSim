@@ -45,6 +45,11 @@ FEATURE_COLS = [
 ]
 CAT_COLS = ["week_pattern", "peak_amplitude_rule", "schedule_case"]
 
+# Pares fijos (pos1, pos2) para K=2 — igual que en el grid de entrenamiento
+POS2_FOR_POS1_K2: dict[int, int] = {10: 28, 12: 38, 22: 40}
+# Anchos válidos por pos1 para K=2
+WIDTHS_FOR_POS1_K2: dict[int, list[int]] = {10: [16, 20, 25], 12: [13, 15, 17], 22: [13, 15, 17]}
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -171,8 +176,8 @@ def main():
     st.markdown("**Pico principal**")
     col1, col2 = st.columns(2)
 
-    pos1_opts  = [14, 25, 36]       if K == 1 else [10, 12, 22]
-    width1_opts = [16, 20, 24]      if K == 1 else [13, 15, 17, 25]
+    pos1_opts   = [14, 25, 36] if K == 1 else [10, 12, 22]
+    width1_opts = [16, 20, 24] if K == 1 else []  # se calcula tras elegir pos1
 
     with col1:
         pos1 = st.selectbox(
@@ -180,6 +185,10 @@ def main():
             options=pos1_opts,
             format_func=intervalo_a_hora,
         )
+
+    if K == 2:
+        width1_opts = WIDTHS_FOR_POS1_K2[pos1]
+
     with col2:
         width1 = st.selectbox(
             "¿Qué tan prolongado es ese pico?",
@@ -192,18 +201,21 @@ def main():
     peak_amplitude_rule = "N/A"
 
     if K == 2:
-        st.markdown("**Segundo pico**")
+        # pos2 se deriva automáticamente del par fijo con pos1
+        pos2 = float(POS2_FOR_POS1_K2[pos1])
+        width2_opts = WIDTHS_FOR_POS1_K2[pos1]
+
+        st.markdown(
+            f"**Segundo pico** — hora fijada por la combinación: "
+            f"**{intervalo_a_hora(pos1)} → {intervalo_a_hora(int(pos2))}**"
+        )
         col3, col4 = st.columns(2)
         with col3:
-            pos2 = st.selectbox(
-                "¿A qué hora es el segundo pico?",
-                options=[28, 38, 40],
-                format_func=intervalo_a_hora,
-            )
+            st.info(f"Hora del segundo pico: **{intervalo_a_hora(int(pos2))}**", icon="📌")
         with col4:
             width2 = st.selectbox(
                 "¿Qué tan prolongado es el segundo pico?",
-                options=[13, 15, 16, 17, 20, 25],
+                options=width2_opts,
                 format_func=lambda x: f"~{x//2} horas ({x} intervalos de 30 min)",
             )
 
@@ -283,7 +295,7 @@ def main():
         vector = {
             "week_pattern"        : week_pattern,
             "p_weekdays"          : p_weekdays,
-            "weekday_step"        : 0.02,
+            "weekday_step"        : 0.02 if week_pattern == "W2" else NAN_SENTINEL,
             "K"                   : K,
             "pos1"                : pos1,
             "pos2"                : pos2,
