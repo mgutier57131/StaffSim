@@ -158,8 +158,10 @@ Basados en los percentiles globales de M_obs sobre los 2 268 escenarios:
 ### Estrategias de scheduling
 | Estrategia | Duración de turno | Inicio de turno |
 |---|---|---|
-| **run1** | Fija (7 horas = 14 intervalos) | Flexible dentro de rango limitado |
-| **run2** | Variable (6, 7, 8, 9 o 10 horas) | Cualquier intervalo del día |
+| **run1** | Fija (7 horas = 14 intervalos) | Determinado por el optimizador (CP-SAT) |
+| **run2** | Variable (6, 7, 8, 9 o 10 horas) | Determinado por el optimizador (CP-SAT) |
+
+> En ambos runs el inicio de turno es una variable de decisión que el solver elige libremente. La única diferencia entre run1 y run2 es la duración del turno asignada.
 
 ---
 
@@ -453,10 +455,12 @@ Tabla de consulta con las 59 hojas del árbol. Columnas:
 | `condiciones` | Ruta de decisiones que lleva a esta hoja |
 | `n_escenarios` | Escenarios que cayeron en esta hoja |
 | `M_obs_min/median/max` | Distribución de M_obs en el grupo |
-| `sum_over_medio` | Over promedio del grupo |
-| `percentil_usado` | 60, 75 o 90 según nivel de over |
-| `M_recomendado` | Percentil de M_obs aplicado al grupo |
+| `HC_real_median` | Mediana de HC_real en el grupo |
+| `M_recomendado` | Mediana de M_obs en la hoja — criterio de selección |
+| `HC_real_rec` | HC_real correspondiente a M_recomendado |
 | `complejidad` | baja / media / alta |
+
+> `M_recomendado` es la **mediana** de los M_obs observados en cada hoja. Se usa la mediana porque M toma valores discretos (determinados por los enteros que devuelve el scheduler), por lo que percentiles variables (p60, p75, p90) resultan en el mismo valor y no aportan diferenciación.
 
 ---
 
