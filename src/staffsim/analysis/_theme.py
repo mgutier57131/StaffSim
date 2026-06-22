@@ -62,6 +62,19 @@ def inject_css() -> None:
         text-transform: uppercase;
         letter-spacing: 0.05em;
     }
+    /* Texto general del sidebar: forzar oscuro para que sea legible sobre fondo claro */
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] span,
+    section[data-testid="stSidebar"] div {
+        color: #263238 !important;
+    }
+    /* Excepciones: inputs y selectboxes mantienen su propio estilo */
+    section[data-testid="stSidebar"] input,
+    section[data-testid="stSidebar"] select,
+    section[data-testid="stSidebar"] [data-baseweb="select"] * {
+        color: inherit;
+    }
 
     /* Metricas */
     [data-testid="stMetricValue"] {
